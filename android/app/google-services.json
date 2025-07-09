@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1069200075259",
+    "project_id": "farmer-consumer-marketplace",
+    "storage_bucket": "farmer-consumer-marketplace.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1069200075259:android:3150a731548b10b6d3435e",
+        "android_client_info": {
+          "package_name": "com.example.farmer_consumer_marketplace"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBrUID_sekEtWBGT-DPMUv_t4qURpPbLK4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
