@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # farmer_consumer_marketplace
 
 A new Flutter project.
@@ -14,3 +15,6 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+=======
+# farmer_consumer_marketplac
+>>>>>>> ccc6a7960f2ada2d7ed45cc9282dc5c7d2eef53e
