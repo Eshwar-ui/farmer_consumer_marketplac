@@ -39,6 +39,11 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
             _currentIndex = 4; // Profile tab index
           });
         },
+        onTabChange: (int idx) {
+          setState(() {
+            _currentIndex = idx;
+          });
+        },
       ),
       InventoryManagement(),
       SellerDashboardScreen(userId: widget.user.id),
@@ -83,8 +88,13 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
 class DashboardContent extends StatefulWidget {
   final UserModel user;
   final void Function()? onProfileTap;
-  const DashboardContent({Key? key, required this.user, this.onProfileTap})
-    : super(key: key);
+  final void Function(int)? onTabChange;
+  const DashboardContent({
+    Key? key,
+    required this.user,
+    this.onProfileTap,
+    this.onTabChange,
+  }) : super(key: key);
   @override
   _DashboardContentState createState() => _DashboardContentState();
 }
@@ -584,9 +594,9 @@ class _DashboardContentState extends State<DashboardContent> {
                 ),
                 TextButton(
                   onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => InventoryManagement()),
-                    );
+                    if (widget.onTabChange != null) {
+                      widget.onTabChange!(1); // 1 = Inventory tab
+                    }
                   },
                   child: Text('View All'),
                 ),
@@ -773,9 +783,9 @@ class _DashboardContentState extends State<DashboardContent> {
                 ),
                 TextButton(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Sales history coming soon')),
-                    );
+                    if (widget.onTabChange != null) {
+                      widget.onTabChange!(3); // 3 = Sales tab
+                    }
                   },
                   child: Text('View All'),
                 ),

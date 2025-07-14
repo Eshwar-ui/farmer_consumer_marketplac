@@ -443,29 +443,33 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
 
           // Bio
           if (_farmerData['bio'] != null && _farmerData['bio'].isNotEmpty) ...[
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'About Me',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+            SizedBox(
+              width: double.infinity,
+
+              child: Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'About Me',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      _farmerData['bio'],
-                      style: TextStyle(fontSize: 16, height: 1.5),
-                    ),
-                  ],
+                      SizedBox(height: 8),
+                      Text(
+                        _farmerData['bio'],
+                        style: TextStyle(fontSize: 16, height: 1.5),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1038,12 +1042,26 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   }
 
   Widget _buildProfileAvatar() {
+    // Prefer imageUrl, then imageBytes, then fallback
+    final imageUrl = _farmerData['profileImageUrl'] as String?;
+    final imageBytes = _farmerData['profileImageBytes'] as String?;
     Widget avatarWidget;
-    // Try profileImageBytes (base64)
-    if (_farmerData['profileImageBytes'] != null &&
-        (_farmerData['profileImageBytes'] as String).isNotEmpty) {
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      avatarWidget = ClipOval(
+        child: FadeInImage.assetNetwork(
+          placeholder: 'assets/app_logo.png',
+          image: imageUrl,
+          width: 120,
+          height: 120,
+          fit: BoxFit.cover,
+          imageErrorBuilder: (context, error, stackTrace) {
+            return Icon(Icons.agriculture, size: 60, color: Colors.green[700]);
+          },
+        ),
+      );
+    } else if (imageBytes != null && imageBytes.isNotEmpty) {
       try {
-        final bytes = base64Decode(_farmerData['profileImageBytes']);
+        final bytes = base64Decode(imageBytes);
         avatarWidget = ClipOval(
           child: Image.memory(
             bytes,
@@ -1051,16 +1069,27 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
             height: 120,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
-              // Fallback to next option
-              return _networkOrDefaultAvatar();
+              return Icon(
+                Icons.agriculture,
+                size: 60,
+                color: Colors.green[700],
+              );
             },
           ),
         );
       } catch (_) {
-        avatarWidget = _networkOrDefaultAvatar();
+        avatarWidget = Icon(
+          Icons.agriculture,
+          size: 60,
+          color: Colors.green[700],
+        );
       }
     } else {
-      avatarWidget = _networkOrDefaultAvatar();
+      avatarWidget = Icon(
+        Icons.agriculture,
+        size: 60,
+        color: Colors.green[700],
+      );
     }
     return Container(
       width: 120,
@@ -1134,11 +1163,25 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
       );
     }
     // Otherwise, use the same logic as the view mode
+    final imageUrl = _farmerData['profileImageUrl'] as String?;
+    final imageBytes = _farmerData['profileImageBytes'] as String?;
     Widget avatarWidget;
-    if (_farmerData['profileImageBytes'] != null &&
-        (_farmerData['profileImageBytes'] as String).isNotEmpty) {
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      avatarWidget = ClipOval(
+        child: FadeInImage.assetNetwork(
+          placeholder: 'assets/app_logo.png',
+          image: imageUrl,
+          width: 120,
+          height: 120,
+          fit: BoxFit.cover,
+          imageErrorBuilder: (context, error, stackTrace) {
+            return Icon(Icons.agriculture, size: 60, color: Colors.green[700]);
+          },
+        ),
+      );
+    } else if (imageBytes != null && imageBytes.isNotEmpty) {
       try {
-        final bytes = base64Decode(_farmerData['profileImageBytes']);
+        final bytes = base64Decode(imageBytes);
         avatarWidget = ClipOval(
           child: Image.memory(
             bytes,
@@ -1146,15 +1189,27 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
             height: 120,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
-              return _networkOrDefaultAvatar();
+              return Icon(
+                Icons.agriculture,
+                size: 60,
+                color: Colors.green[700],
+              );
             },
           ),
         );
       } catch (_) {
-        avatarWidget = _networkOrDefaultAvatar();
+        avatarWidget = Icon(
+          Icons.agriculture,
+          size: 60,
+          color: Colors.green[700],
+        );
       }
     } else {
-      avatarWidget = _networkOrDefaultAvatar();
+      avatarWidget = Icon(
+        Icons.agriculture,
+        size: 60,
+        color: Colors.green[700],
+      );
     }
     return Container(
       width: 120,

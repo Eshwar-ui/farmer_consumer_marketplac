@@ -43,38 +43,47 @@ class CustomBottomNav extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: items.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              final isSelected = index == currentIndex;
-              
-              return InkWell(
-                onTap: () => onTap(index),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      item.icon,
-                      color: isSelected 
-                          ? selectedItemColor ?? Theme.of(context).primaryColor
-                          : unselectedItemColor ?? Colors.grey,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children:
+                items.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
+                  final isSelected = index == currentIndex;
+
+                  return InkWell(
+                    onTap: () => onTap(index),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Icon(
+                          item.icon,
+                          color:
+                              isSelected
+                                  ? selectedItemColor ??
+                                      Theme.of(context).primaryColor
+                                  : unselectedItemColor ?? Colors.grey,
+                        ),
+                        const SizedBox(height: 4.0),
+                        Text(
+                          item.label,
+                          style: TextStyle(
+                            fontSize: 12.0,
+                            color:
+                                isSelected
+                                    ? selectedItemColor ??
+                                        Theme.of(context).primaryColor
+                                    : unselectedItemColor ?? Colors.grey,
+                            fontWeight:
+                                isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4.0),
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        fontSize: 12.0,
-                        color: isSelected 
-                            ? selectedItemColor ?? Theme.of(context).primaryColor
-                            : unselectedItemColor ?? Colors.grey,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
+                  );
+                }).toList(),
           ),
         ),
       ),

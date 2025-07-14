@@ -51,48 +51,55 @@ class _SalesPageState extends State<SalesPage> {
       appBar: CustomAppBar(title: 'Sales'),
       body: RefreshIndicator(
         onRefresh: _loadAllSales,
-        child: ListView(
-          padding: const EdgeInsets.all(16.0),
-          children: [
-            TotalRevenueWidget(),
-            const SizedBox(height: 18.0),
-            _buildSummaryRow(),
-            const SizedBox(height: 18.0),
-            Text(
-              'All Sales',
-              style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12.0),
-            if (_isLoading)
-              Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: CircularProgressIndicator(),
+        child: SingleChildScrollView(
+          physics: AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TotalRevenueWidget(),
+                const SizedBox(height: 18.0),
+                _buildSummaryRow(),
+                const SizedBox(height: 18.0),
+                Text(
+                  'All Sales',
+                  style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
                 ),
-              )
-            else if (_errorMessage != null)
-              Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: Text(
-                    _errorMessage!,
-                    style: TextStyle(color: Colors.red),
+                const SizedBox(height: 12.0),
+                if (_isLoading)
+                  Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                else if (_errorMessage != null)
+                  Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Text(
+                        _errorMessage!,
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  )
+                else if (_allSales.isEmpty)
+                  _buildEmptyState()
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
+                    itemCount: _allSales.length,
+                    separatorBuilder: (_, __) => SizedBox(height: 12),
+                    itemBuilder: (context, idx) {
+                      final sale = _allSales[idx];
+                      return _buildSaleCard(sale);
+                    },
                   ),
-                ),
-              )
-            else if (_allSales.isEmpty)
-              _buildEmptyState(),
-            else(ListView.separated(
-                shrinkWrap: true,
-                physics: NeverScrollableScrollPhysics(),
-                itemCount: _allSales.length,
-                separatorBuilder: (_, __) => SizedBox(height: 12),
-                itemBuilder: (context, idx) {
-                  final sale = _allSales[idx];
-                  return _buildSaleCard(sale);
-                },
-              ),)
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );
