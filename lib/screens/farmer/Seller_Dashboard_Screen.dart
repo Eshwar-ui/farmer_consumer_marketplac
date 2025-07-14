@@ -1,5 +1,6 @@
 import 'package:farmer_consumer_marketplace/utils/LogoutButton.dart';
 import 'package:farmer_consumer_marketplace/widgets/Order_Details_Screen.dart';
+import 'package:farmer_consumer_marketplace/widgets/common/app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:farmer_consumer_marketplace/services/firebase_service.dart';
@@ -29,6 +30,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   }
 
   Future<void> _loadDashboardData() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
     });
@@ -49,6 +51,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
               .where((notification) => notification['isRead'] != true)
               .length;
 
+      if (!mounted) return;
       setState(() {
         _recentOrders = recentOrders;
         _unreadNotifications = unreadCount;
@@ -56,6 +59,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       });
     } catch (e) {
       print('Error loading dashboard data: $e');
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
@@ -94,41 +98,8 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-     
-      // appBar: AppBar(
-      //   title: Text('Seller Dashboard'),
-      //   actions: [
-      //     IconButton(
-      //       icon: badges.Badge(
-      //         badgeContent: Text(
-      //           _unreadNotifications.toString(),
-      //           style: TextStyle(color: Colors.white, fontSize: 12),
-      //         ),
-      //         showBadge: _unreadNotifications > 0,
-      //         badgeAnimation: badges.BadgeAnimation.rotation(
-      //           animationDuration: Duration(seconds: 1),
-      //           colorChangeAnimationDuration: Duration(seconds: 1),
-      //           loopAnimation: false,
-      //           curve: Curves.fastOutSlowIn,
-      //           colorChangeAnimationCurve: Curves.easeInCubic,
-      //         ),
-      //         child: Icon(Icons.notifications),
-      //       ),
-      //       onPressed: () async {
-      //         // await Navigator.push(
-      //         //   context,
-      //         //   MaterialPageRoute(
-      //         //     builder:
-      //         //         (context) => NotificationsScreen(userId: widget.userId),
-      //         //   ),
-      //         // );
-      //         // Refresh data when returning from notifications
-      //         _loadDashboardData();
-      //       },
-      //     ),
-      //     IconButton(icon: Icon(Icons.refresh), onPressed: _loadDashboardData),
-      //   ],
-      // ),
+      appBar: CustomAppBar(title: 'Orders'),
+
       body:
           _isLoading
               ? Center(child: CircularProgressIndicator())

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:farmer_consumer_marketplace/widgets/common/app_bar.dart';
 import 'package:farmer_consumer_marketplace/services/auth_service.dart';
+import 'dart:convert'; // Added for base64Decode
 
 class UserProfileScreen extends StatefulWidget {
   @override
@@ -31,8 +32,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final user = _auth.currentUser;
       if (user != null) {
         // Load user profile from Firestore
-        final userDoc = await _firestore.collection('users').doc(user.uid).get();
-        
+        final userDoc =
+            await _firestore.collection('users').doc(user.uid).get();
+
         if (userDoc.exists) {
           setState(() {
             _userProfile = userDoc.data();
@@ -40,28 +42,28 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         }
 
         // Load recent orders
-        final ordersSnapshot = await _firestore
-            .collection('orders')
-            .where('userId', isEqualTo: user.uid)
-            .orderBy('orderDate', descending: true)
-            .limit(5)
-            .get();
+        final ordersSnapshot =
+            await _firestore
+                .collection('orders')
+                .where('userId', isEqualTo: user.uid)
+                .orderBy('orderDate', descending: true)
+                .limit(5)
+                .get();
 
         setState(() {
-          _recentOrders = ordersSnapshot.docs
-              .map((doc) {
+          _recentOrders =
+              ordersSnapshot.docs.map((doc) {
                 final data = doc.data();
                 data['id'] = doc.id;
                 return data;
-              })
-              .toList();
+              }).toList();
         });
       }
     } catch (e) {
       print('Error loading user data: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load profile data')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load profile data')));
     } finally {
       setState(() {
         _isLoading = false;
@@ -76,9 +78,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
     } catch (e) {
       print('Error logging out: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to log out')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to log out')));
     }
   }
 
@@ -97,9 +99,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : _userProfile == null
+      body:
+          _isLoading
+              ? Center(child: CircularProgressIndicator())
+              : _userProfile == null
               ? _buildNoProfileView()
               : _buildProfileView(),
     );
@@ -110,11 +113,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.account_circle,
-            size: 100,
-            color: Colors.grey[400],
-          ),
+          Icon(Icons.account_circle, size: 100, color: Colors.grey[400]),
           SizedBox(height: 16),
           Text(
             'Profile not found',
@@ -137,7 +136,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Widget _buildProfileView() {
     final user = _auth.currentUser;
-    
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.0),
       child: Column(
@@ -147,16 +146,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           Center(
             child: Column(
               children: [
-                CircleAvatar(
-                  radius: 50,
-                  backgroundColor: Colors.grey[200],
-                  backgroundImage: _userProfile!['photoUrl'] != null
-                      ? NetworkImage(_userProfile!['photoUrl'])
-                      : null,
-                  child: _userProfile!['photoUrl'] == null
-                      ? Icon(Icons.person, size: 50, color: Colors.grey[400])
-                      : null,
-                ),
+                _buildProfileAvatar(),
                 SizedBox(height: 16),
                 Text(
                   _userProfile!['name'] ?? user?.displayName ?? 'User',
@@ -176,8 +166,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           // Contact info section
           _buildSectionHeader('Contact Information'),
           _buildInfoCard([
-            _buildInfoRow(Icons.phone, 'Phone', _userProfile!['phone'] ?? 'Not provided'),
-            _buildInfoRow(Icons.location_on, 'Address', _userProfile!['address'] ?? 'Not provided'),
+            _buildInfoRow(
+              Icons.phone,
+              'Phone',
+              _userProfile!['phone'] ?? 'Not provided',
+            ),
+            _buildInfoRow(
+              Icons.location_on,
+              'Address',
+              _userProfile!['address'] ?? 'Not provided',
+            ),
           ]),
 
           SizedBox(height: 24),
@@ -186,11 +184,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           _buildSectionHeader('Preferences'),
           _buildInfoCard([
             _buildInfoRow(
-              Icons.eco, 
-              'Preferred Categories', 
-              (_userProfile!['preferredCategories'] as List<dynamic>?)?.join(', ') ?? 'Not specified'
+              Icons.eco,
+              'Preferred Categories',
+              (_userProfile!['preferredCategories'] as List<dynamic>?)?.join(
+                    ', ',
+                  ) ??
+                  'Not specified',
             ),
-            _buildPreferenceToggle('Notification Preferences', _userProfile!['notificationsEnabled'] ?? true),
+            _buildPreferenceToggle(
+              'Notification Preferences',
+              _userProfile!['notificationsEnabled'] ?? true,
+            ),
           ]),
 
           SizedBox(height: 24),
@@ -200,8 +204,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           _recentOrders.isEmpty
               ? _buildEmptyOrdersCard()
               : Column(
-                  children: _recentOrders.map((order) => _buildOrderCard(order)).toList(),
-                ),
+                children:
+                    _recentOrders
+                        .map((order) => _buildOrderCard(order))
+                        .toList(),
+              ),
 
           SizedBox(height: 32),
 
@@ -224,6 +231,67 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
+  Widget _buildProfileAvatar() {
+    final profileImageBytes = _userProfile?['profileImageBytes'];
+    final profileImageUrl =
+        _userProfile?['photoUrl'] ?? _userProfile?['profileImageUrl'];
+    Widget avatarWidget;
+    if (profileImageBytes != null && (profileImageBytes as String).isNotEmpty) {
+      try {
+        final bytes = base64Decode(profileImageBytes);
+        avatarWidget = ClipOval(
+          child: Image.memory(
+            bytes,
+            width: 100,
+            height: 100,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _networkOrDefaultAvatar(profileImageUrl);
+            },
+          ),
+        );
+      } catch (_) {
+        avatarWidget = _networkOrDefaultAvatar(profileImageUrl);
+      }
+    } else {
+      avatarWidget = _networkOrDefaultAvatar(profileImageUrl);
+    }
+    return Container(
+      width: 100,
+      height: 100,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.green, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.10),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: avatarWidget,
+    );
+  }
+
+  Widget _networkOrDefaultAvatar(String? url) {
+    if (url != null && url.isNotEmpty) {
+      return ClipOval(
+        child: FadeInImage.assetNetwork(
+          placeholder: 'assets/app_logo.png',
+          image: url,
+          width: 100,
+          height: 100,
+          fit: BoxFit.cover,
+          imageErrorBuilder: (context, error, stackTrace) {
+            return Icon(Icons.agriculture, size: 50, color: Colors.green[700]);
+          },
+        ),
+      );
+    }
+    return Icon(Icons.agriculture, size: 50, color: Colors.green[700]);
+  }
+
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: EdgeInsets.only(bottom: 12),
@@ -240,9 +308,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: EdgeInsets.all(16),
-        child: Column(
-          children: children,
-        ),
+        child: Column(children: children),
       ),
     );
   }
@@ -261,10 +327,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 label,
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
-              Text(
-                value,
-                style: TextStyle(fontSize: 16),
-              ),
+              Text(value, style: TextStyle(fontSize: 16)),
             ],
           ),
         ],
@@ -280,12 +343,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.notifications, color: Theme.of(context).primaryColor, size: 20),
-              SizedBox(width: 12),
-              Text(
-                label,
-                style: TextStyle(fontSize: 16),
+              Icon(
+                Icons.notifications,
+                color: Theme.of(context).primaryColor,
+                size: 20,
               ),
+              SizedBox(width: 12),
+              Text(label, style: TextStyle(fontSize: 16)),
             ],
           ),
           Switch(
@@ -296,7 +360,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     .collection('users')
                     .doc(_auth.currentUser!.uid)
                     .update({'notificationsEnabled': newValue});
-                
+
                 setState(() {
                   _userProfile!['notificationsEnabled'] = newValue;
                 });
@@ -319,11 +383,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         child: Center(
           child: Column(
             children: [
-              Icon(
-                Icons.shopping_bag,
-                size: 48,
-                color: Colors.grey[400],
-              ),
+              Icon(Icons.shopping_bag, size: 48, color: Colors.grey[400]),
               SizedBox(height: 16),
               Text(
                 'No recent orders',
@@ -350,10 +410,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildOrderCard(Map<String, dynamic> order) {
-    final orderDate = order['orderDate'] != null 
-        ? DateTime.parse(order['orderDate'])
-        : DateTime.now();
-    
+    final orderDate =
+        order['orderDate'] != null
+            ? DateTime.parse(order['orderDate'])
+            : DateTime.now();
+
     return Card(
       elevation: 2,
       margin: EdgeInsets.only(bottom: 12),
@@ -361,7 +422,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       child: InkWell(
         onTap: () {
           // Navigate to order details
-          Navigator.of(context).pushNamed('/order-details', arguments: order['id']);
+          Navigator.of(
+            context,
+          ).pushNamed('/order-details', arguments: order['id']);
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(

@@ -5,6 +5,7 @@ import 'package:farmer_consumer_marketplace/services/firebase_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
+import 'dart:convert'; // Added for base64Decode
 
 class ConsumerProfileScreen extends StatefulWidget {
   @override
@@ -14,15 +15,15 @@ class ConsumerProfileScreen extends StatefulWidget {
 class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
   final FirebaseService _firebaseService = FirebaseService();
   final ImagePicker _imagePicker = ImagePicker();
-  
+
   bool _isLoading = true;
   bool _isEditing = false;
   bool _isSaving = false;
   String? _errorMessage;
   bool _isNewProfile = false;
-  
+
   Map<String, dynamic> _userData = {};
-  
+
   // Controllers for editing
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -30,21 +31,21 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _stateController = TextEditingController();
   final TextEditingController _pincodeController = TextEditingController();
-  
+
   File? _profileImageFile;
-  
+
   @override
   void initState() {
     super.initState();
     _loadConsumerProfile();
   }
-  
+
   Future<void> _loadConsumerProfile() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-    
+
     try {
       // Check if user is logged in
       if (_firebaseService.currentUserId == null) {
@@ -54,15 +55,16 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
         });
         return;
       }
-      
-      Map<String, dynamic>? userData = await _firebaseService.getConsumerProfile();
-      
+
+      Map<String, dynamic>? userData =
+          await _firebaseService.getConsumerProfile();
+
       if (userData != null && userData.isNotEmpty) {
         setState(() {
           _userData = userData;
           _isLoading = false;
         });
-        
+
         // Set controller values
         _setControllerValues();
       } else {
@@ -72,7 +74,7 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
           _isNewProfile = true;
           _isEditing = true;
           _isLoading = false;
-          
+
           // Initialize with default values
           _initializeDefaultValues();
         });
@@ -85,25 +87,25 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
       });
     }
   }
-  
+
   void _initializeDefaultValues() {
     // Try to get user info from Firebase Auth
     final user = _firebaseService.auth.currentUser;
-    
+
     if (user != null) {
       _nameController.text = user.displayName ?? '';
       _phoneController.text = user.phoneNumber ?? '';
-      
+
       // Pre-fill email in userData (readonly)
       _userData['email'] = user.email;
     }
   }
-  
+
   void _setControllerValues() {
     _nameController.text = _userData['name'] ?? '';
     _phoneController.text = _userData['phoneNumber'] ?? '';
     _addressController.text = _userData['address'] ?? '';
-    
+
     // Parse location if it exists (format: "City, State")
     String location = _userData['location'] ?? '';
     if (location.isNotEmpty) {
@@ -115,17 +117,17 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
         _stateController.text = parts[1];
       }
     }
-    
+
     _pincodeController.text = _userData['pincode'] ?? '';
   }
-  
+
   Future<void> _pickImage() async {
     try {
       final XFile? pickedFile = await _imagePicker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 80,
       );
-      
+
       if (pickedFile != null) {
         setState(() {
           _profileImageFile = File(pickedFile.path);
@@ -140,18 +142,21 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
       );
     }
   }
-  
+
   Future<String?> _uploadProfileImage() async {
     if (_profileImageFile == null) return null;
-    
+
     try {
       // Create a reference to the storage location
-      String fileName = 'profile_${_firebaseService.currentUserId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final storageRef = FirebaseStorage.instance.ref().child('profile_images/$fileName');
-      
+      String fileName =
+          'profile_${_firebaseService.currentUserId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final storageRef = FirebaseStorage.instance.ref().child(
+        'profile_images/$fileName',
+      );
+
       // Upload file
       await storageRef.putFile(_profileImageFile!);
-      
+
       // Get download URL
       return await storageRef.getDownloadURL();
     } catch (e) {
@@ -159,7 +164,7 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
       return null;
     }
   }
-  
+
   Future<void> _saveProfile() async {
     // Validate required fields
     if (_nameController.text.isEmpty || _phoneController.text.isEmpty) {
@@ -171,17 +176,18 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
       );
       return;
     }
-    
+
     setState(() {
       _isSaving = true;
     });
-    
+
     try {
       // Upload profile image if changed
-      String? profileImageUrl = _profileImageFile != null 
-          ? await _uploadProfileImage() 
-          : _userData['profileImageUrl'];
-      
+      String? profileImageUrl =
+          _profileImageFile != null
+              ? await _uploadProfileImage()
+              : _userData['profileImageUrl'];
+
       // Prepare updated data
       Map<String, dynamic> updatedData = {
         'name': _nameController.text,
@@ -191,53 +197,57 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
         'pincode': _pincodeController.text,
         'updatedAt': DateTime.now().toIso8601String(),
       };
-      
+
       // Add profile pic URL if available
       if (profileImageUrl != null) {
         updatedData['profileImageUrl'] = profileImageUrl;
       }
-      
+
       // For new profiles, add creation timestamp
       if (_isNewProfile) {
         updatedData['createdAt'] = DateTime.now().toIso8601String();
-        
+
         // Add email from Firebase Auth if available
         final user = _firebaseService.auth.currentUser;
         if (user != null && user.email != null) {
           updatedData['email'] = user.email;
         }
       }
-      
+
       // Save to Firebase
       bool success = await _firebaseService.updateConsumerProfile(updatedData);
-      
+
       if (success) {
         // Reload profile
         setState(() {
           _isNewProfile = false;
         });
         await _loadConsumerProfile();
-        
+
         // Exit edit mode
         setState(() {
           _isEditing = false;
           _isSaving = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Profile ${_isNewProfile ? 'created' : 'updated'} successfully'),
+            content: Text(
+              'Profile ${_isNewProfile ? 'created' : 'updated'} successfully',
+            ),
             backgroundColor: Colors.green,
           ),
         );
       } else {
-        throw Exception('Failed to ${_isNewProfile ? 'create' : 'update'} profile');
+        throw Exception(
+          'Failed to ${_isNewProfile ? 'create' : 'update'} profile',
+        );
       }
     } catch (e) {
       setState(() {
         _isSaving = false;
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error saving profile: $e'),
@@ -246,7 +256,7 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
       );
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -265,16 +275,17 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
             ),
         ],
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : _errorMessage != null
+      body:
+          _isLoading
+              ? Center(child: CircularProgressIndicator())
+              : _errorMessage != null
               ? _buildErrorView()
               : _isEditing
-                  ? _buildEditProfileView()
-                  : _buildProfileView(),
+              ? _buildEditProfileView()
+              : _buildProfileView(),
     );
   }
-  
+
   Widget _buildErrorView() {
     return Center(
       child: Column(
@@ -314,7 +325,7 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
       ),
     );
   }
-  
+
   Widget _buildProfileView() {
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.0),
@@ -325,39 +336,12 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
           Center(
             child: Column(
               children: [
-                // Profile image
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.blue,
-                      width: 3,
-                    ),
-                    image: _userData['profileImageUrl'] != null
-                        ? DecorationImage(
-                            image: NetworkImage(_userData['profileImageUrl']),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: _userData['profileImageUrl'] == null
-                      ? Icon(
-                          Icons.person,
-                          size: 60,
-                          color: Colors.grey[400],
-                        )
-                      : null,
-                ),
+                _buildProfileAvatar(),
                 SizedBox(height: 16),
                 // Name
                 Text(
                   _userData['name'] ?? 'Consumer',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 8),
                 // Verified badge
@@ -370,11 +354,7 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.verified,
-                        size: 16,
-                        color: Colors.blue,
-                      ),
+                      Icon(Icons.verified, size: 16, color: Colors.blue),
                       SizedBox(width: 4),
                       Text(
                         'Verified Consumer',
@@ -389,9 +369,9 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
               ],
             ),
           ),
-          
+
           SizedBox(height: 24),
-          
+
           // Contact Information
           Card(
             elevation: 2,
@@ -405,10 +385,7 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
                 children: [
                   Text(
                     'Contact Information',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 16),
                   _infoItem(
@@ -423,18 +400,14 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
                     _userData['email'] ?? 'Not provided',
                   ),
                   SizedBox(height: 12),
-                  _infoItem(
-                    Icons.location_on,
-                    'Address',
-                    _formatAddress(),
-                  ),
+                  _infoItem(Icons.location_on, 'Address', _formatAddress()),
                 ],
               ),
             ),
           ),
-          
+
           SizedBox(height: 16),
-          
+
           // Account Information
           Card(
             elevation: 2,
@@ -448,10 +421,7 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
                 children: [
                   Text(
                     'Account Information',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 16),
                   _infoItem(
@@ -469,13 +439,13 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
               ),
             ),
           ),
-          
+
           SizedBox(height: 24),
         ],
       ),
     );
   }
-  
+
   Widget _buildEditProfileView() {
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.0),
@@ -498,55 +468,25 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
             Center(
               child: Text(
                 'Please fill in your details to get started',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(color: Colors.grey[600]),
               ),
             ),
             SizedBox(height: 24),
           ],
-          
+
           // Profile image
           Center(
             child: Column(
               children: [
                 Stack(
                   children: [
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.blue,
-                          width: 3,
-                        ),
-                        image: _profileImageFile != null
-                            ? DecorationImage(
-                                image: FileImage(_profileImageFile!),
-                                fit: BoxFit.cover,
-                              )
-                            : _userData['profileImageUrl'] != null
-                                ? DecorationImage(
-                                    image: NetworkImage(_userData['profileImageUrl']),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                      ),
-                      child: _profileImageFile == null && _userData['profileImageUrl'] == null
-                          ? Icon(
-                              Icons.person,
-                              size: 60,
-                              color: Colors.grey[400],
-                            )
-                          : null,
-                    ),
+                    _buildEditProfileAvatar(),
                     Positioned(
                       bottom: 0,
                       right: 0,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.blue,
+                          color: Colors.green,
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
@@ -564,16 +504,14 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
                 SizedBox(height: 8),
                 Text(
                   'Profile Photo',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(color: Colors.grey[600]),
                 ),
               ],
             ),
           ),
-          
+
           SizedBox(height: 24),
-          
+
           // Personal Information
           Card(
             elevation: 2,
@@ -622,9 +560,9 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
               ),
             ),
           ),
-          
+
           SizedBox(height: 16),
-          
+
           // Address Information
           Card(
             elevation: 2,
@@ -703,25 +641,28 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
               ),
             ),
           ),
-          
+
           SizedBox(height: 32),
-          
+
           // Save and Cancel buttons
           Row(
             children: [
               Expanded(
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _saveProfile,
-                  child: _isSaving
-                      ? SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                  child:
+                      _isSaving
+                          ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                          : Text(
+                            _isNewProfile ? 'Create Profile' : 'Save Profile',
                           ),
-                        )
-                      : Text(_isNewProfile ? 'Create Profile' : 'Save Profile'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     padding: EdgeInsets.symmetric(vertical: 16),
@@ -736,13 +677,14 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
                 SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _isSaving
-                        ? null
-                        : () {
-                            setState(() {
-                              _isEditing = false;
-                            });
-                          },
+                    onPressed:
+                        _isSaving
+                            ? null
+                            : () {
+                              setState(() {
+                                _isEditing = false;
+                              });
+                            },
                     child: Text('Cancel'),
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.symmetric(vertical: 16),
@@ -755,13 +697,13 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
               ],
             ],
           ),
-          
+
           SizedBox(height: 24),
         ],
       ),
     );
   }
-  
+
   Widget _infoItem(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -772,11 +714,7 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
             color: Colors.blue[50],
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            icon,
-            color: Colors.blue,
-            size: 20,
-          ),
+          child: Icon(icon, color: Colors.blue, size: 20),
         ),
         SizedBox(width: 16),
         Expanded(
@@ -785,17 +723,17 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
               ),
               SizedBox(height: 2),
               Text(
                 value,
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: value == 'Not provided' ? FontWeight.normal : FontWeight.bold,
+                  fontWeight:
+                      value == 'Not provided'
+                          ? FontWeight.normal
+                          : FontWeight.bold,
                   color: value == 'Not provided' ? Colors.grey : null,
                 ),
               ),
@@ -805,32 +743,32 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
       ],
     );
   }
-  
+
   String _formatAddress() {
     String location = _userData['location'] ?? '';
     String address = _userData['address'] ?? '';
     String pincode = _userData['pincode'] ?? '';
-    
+
     List<String> addressParts = [];
-    
+
     if (address.isNotEmpty) {
       addressParts.add(address);
     }
-    
+
     if (location.isNotEmpty) {
       addressParts.add(location);
     }
-    
+
     if (pincode.isNotEmpty) {
       addressParts.add(pincode);
     }
-    
+
     return addressParts.isEmpty ? 'Not provided' : addressParts.join(', ');
   }
-  
+
   String _formatDate(String? dateString) {
     if (dateString == null) return 'Not available';
-    
+
     try {
       DateTime date = DateTime.parse(dateString);
       return DateFormat('MMMM d, yyyy').format(date);
@@ -838,7 +776,142 @@ class _ConsumerProfileScreenState extends State<ConsumerProfileScreen> {
       return 'Not available';
     }
   }
-  
+
+  Widget _buildProfileAvatar() {
+    Widget avatarWidget;
+    if (_userData['profileImageBytes'] != null &&
+        (_userData['profileImageBytes'] as String).isNotEmpty) {
+      try {
+        final bytes = base64Decode(_userData['profileImageBytes']);
+        avatarWidget = ClipOval(
+          child: Image.memory(
+            bytes,
+            width: 120,
+            height: 120,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _networkOrDefaultAvatar();
+            },
+          ),
+        );
+      } catch (_) {
+        avatarWidget = _networkOrDefaultAvatar();
+      }
+    } else {
+      avatarWidget = _networkOrDefaultAvatar();
+    }
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.green, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.10),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: avatarWidget,
+    );
+  }
+
+  Widget _buildEditProfileAvatar() {
+    if (_profileImageFile != null) {
+      // Show preview of newly picked image
+      return Container(
+        width: 120,
+        height: 120,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.green, width: 3),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.green.withOpacity(0.10),
+              blurRadius: 10,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: Image.file(
+            _profileImageFile!,
+            width: 120,
+            height: 120,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Icon(
+                Icons.agriculture,
+                size: 60,
+                color: Colors.green[700],
+              );
+            },
+          ),
+        ),
+      );
+    }
+    // Otherwise, use the same logic as the view mode
+    Widget avatarWidget;
+    if (_userData['profileImageBytes'] != null &&
+        (_userData['profileImageBytes'] as String).isNotEmpty) {
+      try {
+        final bytes = base64Decode(_userData['profileImageBytes']);
+        avatarWidget = ClipOval(
+          child: Image.memory(
+            bytes,
+            width: 120,
+            height: 120,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _networkOrDefaultAvatar();
+            },
+          ),
+        );
+      } catch (_) {
+        avatarWidget = _networkOrDefaultAvatar();
+      }
+    } else {
+      avatarWidget = _networkOrDefaultAvatar();
+    }
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.green, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.10),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: avatarWidget,
+    );
+  }
+
+  Widget _networkOrDefaultAvatar() {
+    if (_userData['profileImageUrl'] != null &&
+        (_userData['profileImageUrl'] as String).isNotEmpty) {
+      return ClipOval(
+        child: FadeInImage.assetNetwork(
+          placeholder: 'assets/app_logo.png',
+          image: _userData['profileImageUrl'],
+          width: 120,
+          height: 120,
+          fit: BoxFit.cover,
+          imageErrorBuilder: (context, error, stackTrace) {
+            return Icon(Icons.agriculture, size: 60, color: Colors.green[700]);
+          },
+        ),
+      );
+    }
+    return Icon(Icons.agriculture, size: 60, color: Colors.green[700]);
+  }
+
   @override
   void dispose() {
     _nameController.dispose();

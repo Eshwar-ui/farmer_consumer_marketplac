@@ -8,6 +8,7 @@ class UserModel {
   final UserRole role;
   final String location;
   final String? profileImageUrl;
+  final String? profileImageBytes; // base64 encoded image
 
   UserModel({
     required this.id,
@@ -17,6 +18,7 @@ class UserModel {
     required this.role,
     required this.location,
     this.profileImageUrl,
+    this.profileImageBytes,
   });
 
   // Factory method to create UserModel from JSON
@@ -29,6 +31,7 @@ class UserModel {
       role: _parseRole(json['role']),
       location: json['location'] ?? '',
       profileImageUrl: json['profileImageUrl'],
+      profileImageBytes: json['profileImageBytes'],
     );
   }
 
@@ -42,6 +45,7 @@ class UserModel {
       'role': role == UserRole.farmer ? 'farmer' : 'consumer',
       'location': location,
       'profileImageUrl': profileImageUrl,
+      'profileImageBytes': profileImageBytes,
     };
   }
 
@@ -61,6 +65,7 @@ class UserModel {
     UserRole? role,
     String? location,
     String? profileImageUrl,
+    String? profileImageBytes,
   }) {
     return UserModel(
       id: this.id,
@@ -70,6 +75,7 @@ class UserModel {
       role: role ?? this.role,
       location: location ?? this.location,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      profileImageBytes: profileImageBytes ?? this.profileImageBytes,
     );
   }
 }

@@ -7,7 +7,7 @@ class LoadingButton extends StatelessWidget {
   final String text;
   final String loadingText;
   final Color? color;
-  
+
   const LoadingButton({
     Key? key,
     required this.isLoading,
@@ -26,39 +26,42 @@ class LoadingButton extends StatelessWidget {
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: color ?? AppColors.primaryColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        child: isLoading
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
+        child:
+            isLoading
+                ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
                     ),
-                  ),
-                  SizedBox(width: 16),
-                  Text(
-                    loadingText,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                    SizedBox(width: 16),
+                    Text(
+                      loadingText,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Roboto',
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+                  ],
+                )
+                : Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontFamily: 'Roboto',
                   ),
-                ],
-              )
-            : Text(
-                text,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
                 ),
-              ),
       ),
     );
   }

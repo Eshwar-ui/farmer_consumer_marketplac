@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -20,12 +19,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
+      foregroundColor: Colors.white,
       title: Text(
         title,
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
+        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
       ),
       centerTitle: centerTitle,
       elevation: 0,
@@ -33,9 +30,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       leading: leading,
       actions: actions,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(16),
-        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
       ),
     );
   }

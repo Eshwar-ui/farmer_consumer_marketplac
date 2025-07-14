@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:farmer_consumer_marketplace/widgets/common/app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
@@ -18,12 +19,12 @@ class WeatherService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
+
         // Check if the API returned an error
         if (data.containsKey('error')) {
           throw Exception(data['error']['info']);
         }
-        
+
         return data;
       } else {
         throw Exception('Failed to load weather data');
@@ -36,17 +37,19 @@ class WeatherService {
   Future<Map<String, dynamic>> getForecast(String query, {int days = 7}) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/forecast?access_key=$apiKey&query=$query&forecast_days=$days'),
+        Uri.parse(
+          '$baseUrl/forecast?access_key=$apiKey&query=$query&forecast_days=$days',
+        ),
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
+
         // Check if the API returned an error
         if (data.containsKey('error')) {
           throw Exception(data['error']['info']);
         }
-        
+
         return data;
       } else {
         throw Exception('Failed to load forecast data');
@@ -60,7 +63,11 @@ class WeatherService {
 class SoilService {
   final String baseUrl = 'https://api.openepi.io/soil';
 
-  Future<Map<String, dynamic>> getSoilType(double lat, double lon, {int topK = 0}) async {
+  Future<Map<String, dynamic>> getSoilType(
+    double lat,
+    double lon, {
+    int topK = 0,
+  }) async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/type?lat=$lat&lon=$lon&top_k=$topK'),
@@ -70,7 +77,9 @@ class SoilService {
         final data = json.decode(response.body);
         return data;
       } else {
-        throw Exception('Failed to load soil type data: ${response.statusCode}');
+        throw Exception(
+          'Failed to load soil type data: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw Exception('Error fetching soil type data: $e');
@@ -78,29 +87,37 @@ class SoilService {
   }
 
   Future<Map<String, dynamic>> getSoilProperties(
-    double lat, 
-    double lon, 
-    {
-      List<String> depths = const ['0-30cm'],
-      List<String> properties = const ['phh2o', 'nitrogen', 'clay', 'sand', 'silt'],
-      List<String> values = const ['mean']
-    }
-  ) async {
+    double lat,
+    double lon, {
+    List<String> depths = const ['0-30cm'],
+    List<String> properties = const [
+      'phh2o',
+      'nitrogen',
+      'clay',
+      'sand',
+      'silt',
+    ],
+    List<String> values = const ['mean'],
+  }) async {
     try {
       // Build query parameters for multiple values
       String depthParams = depths.map((d) => 'depths=$d').join('&');
       String propertyParams = properties.map((p) => 'properties=$p').join('&');
       String valueParams = values.map((v) => 'values=$v').join('&');
-      
+
       final response = await http.get(
-        Uri.parse('$baseUrl/property?lat=$lat&lon=$lon&$depthParams&$propertyParams&$valueParams'),
+        Uri.parse(
+          '$baseUrl/property?lat=$lat&lon=$lon&$depthParams&$propertyParams&$valueParams',
+        ),
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return data;
       } else {
-        throw Exception('Failed to load soil property data: ${response.statusCode}');
+        throw Exception(
+          'Failed to load soil property data: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw Exception('Error fetching soil property data: $e');
@@ -208,12 +225,14 @@ class CropRecommendationScreen extends StatefulWidget {
   const CropRecommendationScreen({super.key});
 
   @override
-  State<CropRecommendationScreen> createState() => _CropRecommendationScreenState();
+  State<CropRecommendationScreen> createState() =>
+      _CropRecommendationScreenState();
 }
 
-class _CropRecommendationScreenState extends State<CropRecommendationScreen> with SingleTickerProviderStateMixin {
+class _CropRecommendationScreenState extends State<CropRecommendationScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  
+
   // Form controllers
   final nController = TextEditingController();
   final pController = TextEditingController();
@@ -223,10 +242,10 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
   final phController = TextEditingController();
   final rainfallController = TextEditingController();
   final locationController = TextEditingController();
-  
+
   // Selected region
   String _selectedRegion = 'Default';
-  
+
   // Prediction results
   String? recommendedCrop;
   double? confidence;
@@ -234,7 +253,7 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
   bool isLoading = false;
   bool isLoadingWeather = false;
   bool isLoadingSoil = false;
-  
+
   // Weather and soil data
   Map<String, dynamic>? weatherData;
   Map<String, dynamic>? soilData;
@@ -243,11 +262,11 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
   Position? currentPosition;
   String? soilType;
   Map<String, double>? soilProperties;
-  
+
   // Model
   Interpreter? _interpreter;
   Map<String, dynamic>? _metadata;
-  
+
   // Services
   final WeatherService _weatherService = WeatherService();
   final SoilService _soilService = SoilService();
@@ -255,7 +274,7 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
   // Animation controller for recommended crop
   late AnimationController _animationController;
   late Animation<double> _animation;
-  
+
   @override
   void initState() {
     super.initState();
@@ -268,13 +287,13 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    
+
     _animation = CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeInOut,
     );
   }
-  
+
   @override
   void dispose() {
     _interpreter?.close();
@@ -289,24 +308,28 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
     _animationController.dispose();
     super.dispose();
   }
-  
+
   void _populateDefaultSoilParameters() {
-    final soilParams = IndianSoilParameters.getSoilParametersForRegion(_selectedRegion);
+    final soilParams = IndianSoilParameters.getSoilParametersForRegion(
+      _selectedRegion,
+    );
     final properties = soilParams['properties'] as Map<String, dynamic>;
-    
+
     nController.text = properties['nitrogen'].toString();
     pController.text = properties['phosphorus'].toString();
     kController.text = properties['potassium'].toString();
     phController.text = properties['ph'].toString();
-    rainfallController.text = IndianSoilParameters.getRainfallForRegion(_selectedRegion).toString();
-    
+    rainfallController.text =
+        IndianSoilParameters.getRainfallForRegion(_selectedRegion).toString();
+
     soilType = soilParams['type'];
     soilProperties = {
       'clay': properties['clay'],
       'silt': properties['silt'],
       'sand': properties['sand'],
       'ph': properties['ph'],
-      'nitrogen': properties['nitrogen'] / 1000, // Convert to percentage for display
+      'nitrogen':
+          properties['nitrogen'] / 1000, // Convert to percentage for display
     };
   }
 
@@ -318,12 +341,16 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
         'assets/crop_recommendation_model_float.tflite', // Use float model
         options: interpreterOptions,
       );
-      
+
       // Load metadata
-      final metadataString = await rootBundle.loadString('assets/crop_model_metadata.json');
+      final metadataString = await rootBundle.loadString(
+        'assets/crop_model_metadata.json',
+      );
       _metadata = jsonDecode(metadataString);
-      
-      print('Model loaded successfully: Interpreter: ${_interpreter != null}, Metadata: ${_metadata != null}');
+
+      print(
+        'Model loaded successfully: Interpreter: ${_interpreter != null}, Metadata: ${_metadata != null}',
+      );
     } catch (e) {
       print('Error loading model: $e');
       // Show an error message to the user
@@ -337,37 +364,47 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
 
   List<double> _preprocess(List<double> input) {
     // The metadata contains min values and ranges for normalization
-    final inputMean = _metadata!['input_mean'] is List
-        ? (_metadata!['input_mean'] as List).map((v) => v is num ? v.toDouble() : 0.0).toList()
-        : List<double>.filled(input.length, 0.0);
-    
-    final inputStd = _metadata!['input_std'] is List
-        ? (_metadata!['input_std'] as List).map((v) => v is num ? v.toDouble() : 1.0).toList()
-        : List<double>.filled(input.length, 1.0);
-    
+    final inputMean =
+        _metadata!['input_mean'] is List
+            ? (_metadata!['input_mean'] as List)
+                .map((v) => v is num ? v.toDouble() : 0.0)
+                .toList()
+            : List<double>.filled(input.length, 0.0);
+
+    final inputStd =
+        _metadata!['input_std'] is List
+            ? (_metadata!['input_std'] as List)
+                .map((v) => v is num ? v.toDouble() : 1.0)
+                .toList()
+            : List<double>.filled(input.length, 1.0);
+
     // Ensure lists are the correct length
     while (inputMean.length < input.length) inputMean.add(0.0);
     while (inputStd.length < input.length) inputStd.add(1.0);
-    
+
     // Apply the same normalization as in the Python code
     // normalized_input = (input_data - self.input_mean) / self.input_std
     List<double> normalized = [];
     for (int i = 0; i < input.length; i++) {
-      normalized.add((input[i] - inputMean[i]) / (inputStd[i] != 0 ? inputStd[i] : 1.0));
+      normalized.add(
+        (input[i] - inputMean[i]) / (inputStd[i] != 0 ? inputStd[i] : 1.0),
+      );
     }
-    
+
     return normalized;
   }
 
   Future<void> _predictCrop() async {
-    if (_formKey.currentState?.validate() != true || _interpreter == null || _metadata == null) {
+    if (_formKey.currentState?.validate() != true ||
+        _interpreter == null ||
+        _metadata == null) {
       return;
     }
-    
+
     setState(() {
       isLoading = true;
     });
-    
+
     try {
       // Get values from form
       final n = double.parse(nController.text);
@@ -377,45 +414,47 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
       final humidity = double.parse(humidityController.text);
       final ph = double.parse(phController.text);
       final rainfall = double.parse(rainfallController.text);
-      
+
       // Preprocess input
       final input = [n, p, k, temp, humidity, ph, rainfall];
       print('Raw input: $input');
-      
+
       final processedInput = _preprocess(input);
       print('Processed input: $processedInput');
-      
+
       // Prepare output tensor with the right shape
       final numClasses = _metadata!['crop_dict'].length;
       final output = List<List<double>>.filled(
-        1, 
-        List<double>.filled(numClasses, 0.0)
+        1,
+        List<double>.filled(numClasses, 0.0),
       );
-      
+
       // Run inference
       _interpreter!.run([processedInput], output);
       print('Model output: ${output[0]}');
-      
+
       // Process results
       final predictions = output[0];
       int maxIndex = 0;
       double maxValue = predictions[0];
-      
+
       for (int i = 1; i < predictions.length; i++) {
         if (predictions[i] > maxValue) {
           maxValue = predictions[i];
           maxIndex = i;
         }
       }
-      
+
       // Convert back to crop name (adding 1 because indices are 1-based in metadata)
       final cropIndex = (maxIndex + 1).toString();
-      final cropDictReverse = Map<String, String>.from(_metadata!['crop_dict_reverse']);
-      
+      final cropDictReverse = Map<String, String>.from(
+        _metadata!['crop_dict_reverse'],
+      );
+
       setState(() {
         recommendedCrop = cropDictReverse[cropIndex] ?? 'Unknown';
         confidence = maxValue;
-        
+
         // Get all scores
         allScores = {};
         for (int i = 0; i < predictions.length; i++) {
@@ -424,24 +463,28 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
             allScores![cropDictReverse[cropKey]!] = predictions[i];
           }
         }
-        
+
         isLoading = false;
       });
-      
+
       // Start animation for results
-      _animationController.reset();
-      _animationController.forward();
-      
-      print('Prediction complete. Recommended crop: $recommendedCrop, Confidence: $confidence');
+      if (mounted) {
+        _animationController.reset();
+        _animationController.forward();
+      }
+
+      print(
+        'Prediction complete. Recommended crop: $recommendedCrop, Confidence: $confidence',
+      );
     } catch (e) {
       setState(() {
         isLoading = false;
       });
       print('Error during prediction: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -454,11 +497,15 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location services are disabled. Please enable the services')),
+        const SnackBar(
+          content: Text(
+            'Location services are disabled. Please enable the services',
+          ),
+        ),
       );
       return false;
     }
-    
+
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -469,65 +516,70 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
         return false;
       }
     }
-    
+
     if (permission == LocationPermission.deniedForever) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location permissions are permanently denied, we cannot request permissions.')),
+        const SnackBar(
+          content: Text(
+            'Location permissions are permanently denied, we cannot request permissions.',
+          ),
+        ),
       );
       return false;
     }
-    
+
     return true;
   }
 
   Future<void> _getCurrentLocation() async {
     final hasPermission = await _handleLocationPermission();
-    
+
     if (!hasPermission) return;
-    
+
     setState(() {
       isLoadingWeather = true;
       isLoadingSoil = true;
     });
-    
+
     try {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      
+
       setState(() {
         currentPosition = position;
       });
-      
+
       // Get address from location
       List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude, 
+        position.latitude,
         position.longitude,
       );
-      
+
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
         String cityName = place.locality ?? '';
         String countryName = place.country ?? '';
-        
+
         setState(() {
-          locationName = cityName.isNotEmpty ? "$cityName, $countryName" : countryName;
+          locationName =
+              cityName.isNotEmpty ? "$cityName, $countryName" : countryName;
           locationController.text = locationName ?? '';
         });
-        
+
         // Get weather data for the location
         if (locationName != null && locationName!.isNotEmpty) {
           await _fetchWeatherData(locationName!);
         }
-        
+
         // Get soil data for the location
         await _fetchSoilData(position.latitude, position.longitude);
       }
     } catch (e) {
       print('Error getting location: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error getting location: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error getting location: $e')));
     } finally {
       setState(() {
         isLoadingWeather = false;
@@ -535,30 +587,32 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
       });
     }
   }
-  
+
   Future<void> _fetchWeatherData(String location) async {
     setState(() {
       isLoadingWeather = true;
     });
-    
+
     try {
       final data = await _weatherService.getCurrentWeather(location);
-      
+
       setState(() {
         weatherData = data;
-        
+
         // Update the form fields with weather data
         if (data.containsKey('current')) {
           final current = data['current'];
           tempController.text = current['temperature']?.toString() ?? '';
           humidityController.text = current['humidity']?.toString() ?? '';
-          
+
           // Estimated rainfall from precipitation (very rough approximation)
           // Adjust this logic if your API provides better rainfall data
           if (current.containsKey('precip')) {
             // Convert precipitation in mm to yearly rainfall estimate (very rough)
             final dailyPrecip = current['precip'] ?? 0;
-            final estimatedYearlyRainfall = (dailyPrecip * 365).toStringAsFixed(0);
+            final estimatedYearlyRainfall = (dailyPrecip * 365).toStringAsFixed(
+              0,
+            );
             rainfallController.text = estimatedYearlyRainfall;
           }
         }
@@ -572,78 +626,81 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
       });
     }
   }
-  
+
   Future<void> _fetchSoilData(double lat, double lon) async {
     setState(() {
       isLoadingSoil = true;
     });
-    
+
     try {
       // Fetch soil type
       final typeData = await _soilService.getSoilType(lat, lon, topK: 3);
-      
+
       // Fetch soil properties
       final propertiesData = await _soilService.getSoilProperties(
-        lat, 
+        lat,
         lon,
         depths: ['0-30cm'],
         properties: ['phh2o', 'nitrogen', 'clay', 'sand', 'silt'],
-        values: ['mean']
+        values: ['mean'],
       );
-      
+
       setState(() {
         soilTypeData = typeData;
         soilData = propertiesData;
-        
+
         // Extract soil type
-        if (typeData.containsKey('properties') && 
+        if (typeData.containsKey('properties') &&
             typeData['properties'].containsKey('most_probable_soil_type')) {
           soilType = typeData['properties']['most_probable_soil_type'];
         }
-        
+
         // Extract soil properties and update form fields
-        if (propertiesData.containsKey('properties') && 
+        if (propertiesData.containsKey('properties') &&
             propertiesData['properties'].containsKey('layers')) {
-          
           final layers = propertiesData['properties']['layers'];
           if (layers is List && layers.isNotEmpty) {
             for (var layer in layers) {
-              if (layer.containsKey('name') && layer['name'] == '0-30cm' && 
+              if (layer.containsKey('name') &&
+                  layer['name'] == '0-30cm' &&
                   layer.containsKey('properties')) {
                 final props = layer['properties'];
-                
+
                 // Update pH controller
-                if (props.containsKey('phh2o') && 
+                if (props.containsKey('phh2o') &&
                     props['phh2o'].containsKey('mean')) {
                   phController.text = props['phh2o']['mean'].toString();
                 }
-                
+
                 // Update nitrogen controller
-                if (props.containsKey('nitrogen') && 
+                if (props.containsKey('nitrogen') &&
                     props['nitrogen'].containsKey('mean')) {
-                  nController.text = (props['nitrogen']['mean'] * 100).toString();
+                  nController.text =
+                      (props['nitrogen']['mean'] * 100).toString();
                 }
-                
+
                 // You might need approximations for P and K as they might not be directly available
                 // For demo purposes, we'll use calculated values based on soil composition
-                if (props.containsKey('clay') && props['clay'].containsKey('mean') &&
-                    props.containsKey('sand') && props['sand'].containsKey('mean') &&
-                    props.containsKey('silt') && props['silt'].containsKey('mean')) {
-                  
+                if (props.containsKey('clay') &&
+                    props['clay'].containsKey('mean') &&
+                    props.containsKey('sand') &&
+                    props['sand'].containsKey('mean') &&
+                    props.containsKey('silt') &&
+                    props['silt'].containsKey('mean')) {
                   // This is a rough approximation - in a real app you'd use a more accurate model
                   double clay = props['clay']['mean'];
                   double sand = props['sand']['mean'];
                   double silt = props['silt']['mean'];
-                  
+
                   // Rough approximation of P and K based on soil composition
                   // These are not scientifically accurate, just for demonstration
                   double pEstimate = clay * 0.5 + silt * 0.3;
                   double kEstimate = clay * 0.8 + silt * 0.2;
-                  
+
                   // Update P and K controllers with estimated values
                   pController.text = (pEstimate * 100).toStringAsFixed(0);
                   kController.text = (kEstimate * 100).toStringAsFixed(0);
-                  
+
                   // Store soil properties for display
                   soilProperties = {
                     'clay': clay,
@@ -672,7 +729,7 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-    
+      appBar: CustomAppBar(title: 'Crop Recomendation'),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -689,7 +746,9 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
               // Region Selection Card
               Card(
                 elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -704,7 +763,7 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                         ),
                       ),
                       const SizedBox(height: 16),
-                      
+
                       Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
@@ -716,19 +775,20 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                             isExpanded: true,
                             padding: EdgeInsets.symmetric(horizontal: 16),
                             borderRadius: BorderRadius.circular(8),
-                            items: [
-                              'North India',
-                              'South India',
-                              'East India',
-                              'West India',
-                              'Central India',
-                              'Default',
-                            ].map((String region) {
-                              return DropdownMenuItem<String>(
-                                value: region,
-                                child: Text(region),
-                              );
-                            }).toList(),
+                            items:
+                                [
+                                  'North India',
+                                  'South India',
+                                  'East India',
+                                  'West India',
+                                  'Central India',
+                                  'Default',
+                                ].map((String region) {
+                                  return DropdownMenuItem<String>(
+                                    value: region,
+                                    child: Text(region),
+                                  );
+                                }).toList(),
                             onChanged: (String? newValue) {
                               if (newValue != null) {
                                 setState(() {
@@ -744,13 +804,15 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Location and weather card
               Card(
                 elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -772,14 +834,15 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                           ),
                           IconButton(
                             icon: const Icon(Icons.refresh),
-                            onPressed: isLoadingWeather ? null : _getCurrentLocation,
+                            onPressed:
+                                isLoadingWeather ? null : _getCurrentLocation,
                             tooltip: 'Refresh data',
                             color: Colors.blue[700],
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
-                      
+
                       Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
@@ -789,7 +852,10 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                           children: [
                             Padding(
                               padding: const EdgeInsets.all(10.0),
-                              child: Icon(Icons.location_on, color: Colors.red[400]),
+                              child: Icon(
+                                Icons.location_on,
+                                color: Colors.red[400],
+                              ),
                             ),
                             Expanded(
                               child: TextFormField(
@@ -807,16 +873,20 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.my_location, color: Colors.blue),
-                              onPressed: isLoadingWeather ? null : _getCurrentLocation,
+                              icon: const Icon(
+                                Icons.my_location,
+                                color: Colors.blue,
+                              ),
+                              onPressed:
+                                  isLoadingWeather ? null : _getCurrentLocation,
                               tooltip: 'Use current location',
                             ),
                           ],
                         ),
                       ),
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       if (isLoadingWeather)
                         Center(
                           child: Padding(
@@ -824,7 +894,8 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                             child: CircularProgressIndicator(),
                           ),
                         )
-                      else if (weatherData != null && weatherData!.containsKey('current'))
+                      else if (weatherData != null &&
+                          weatherData!.containsKey('current'))
                         _buildWeatherInfo()
                       else
                         Center(
@@ -843,7 +914,10 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                               SizedBox(height: 4),
                               Text(
                                 'Default values will be used',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                ),
                               ),
                             ],
                           ),
@@ -852,13 +926,15 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Soil information card
               Card(
                 elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -878,9 +954,9 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                           ),
                         ],
                       ),
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       if (isLoadingSoil)
                         const Center(
                           child: Padding(
@@ -912,13 +988,15 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Soil and Climate Parameters Form Card
               Card(
                 elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Form(
@@ -934,13 +1012,15 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                           ),
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // Divider with label
                         Row(
                           children: [
                             Expanded(child: Divider()),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8.0,
+                              ),
                               child: Text(
                                 'SOIL NUTRIENTS',
                                 style: TextStyle(
@@ -953,9 +1033,9 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                             Expanded(child: Divider()),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // N, P, K inputs
                         Container(
                           width: 300,
@@ -995,17 +1075,25 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                                             filled: true,
                                             fillColor: Colors.white,
                                             border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                               borderSide: BorderSide.none,
                                             ),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 8,
+                                                ),
                                             isDense: true,
                                             suffixText: 'kg/ha',
                                           ),
                                           keyboardType: TextInputType.number,
                                           textAlign: TextAlign.center,
-                                          validator: (value) => value?.isEmpty ?? true 
-                                            ? 'Required' : null,
+                                          validator:
+                                              (value) =>
+                                                  value?.isEmpty ?? true
+                                                      ? 'Required'
+                                                      : null,
                                         ),
                                       ],
                                     ),
@@ -1046,17 +1134,25 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                                             filled: true,
                                             fillColor: Colors.white,
                                             border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                               borderSide: BorderSide.none,
                                             ),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 8,
+                                                ),
                                             isDense: true,
                                             suffixText: 'kg/ha',
                                           ),
                                           keyboardType: TextInputType.number,
                                           textAlign: TextAlign.center,
-                                          validator: (value) => value?.isEmpty ?? true 
-                                            ? 'Required' : null,
+                                          validator:
+                                              (value) =>
+                                                  value?.isEmpty ?? true
+                                                      ? 'Required'
+                                                      : null,
                                         ),
                                       ],
                                     ),
@@ -1097,17 +1193,25 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                                             filled: true,
                                             fillColor: Colors.white,
                                             border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                               borderSide: BorderSide.none,
                                             ),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 8,
+                                                ),
                                             isDense: true,
                                             suffixText: 'kg/ha',
                                           ),
                                           keyboardType: TextInputType.number,
                                           textAlign: TextAlign.center,
-                                          validator: (value) => value?.isEmpty ?? true 
-                                            ? 'Required' : null,
+                                          validator:
+                                              (value) =>
+                                                  value?.isEmpty ?? true
+                                                      ? 'Required'
+                                                      : null,
                                         ),
                                       ],
                                     ),
@@ -1117,9 +1221,9 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                             ],
                           ),
                         ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // pH value
                         Container(
                           decoration: BoxDecoration(
@@ -1141,7 +1245,8 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                                 SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'Soil pH',
@@ -1172,28 +1277,36 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                                         borderRadius: BorderRadius.circular(8),
                                         borderSide: BorderSide.none,
                                       ),
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
                                       isDense: true,
                                     ),
                                     keyboardType: TextInputType.number,
                                     textAlign: TextAlign.center,
-                                    validator: (value) => value?.isEmpty ?? true 
-                                      ? 'Required' : null,
+                                    validator:
+                                        (value) =>
+                                            value?.isEmpty ?? true
+                                                ? 'Required'
+                                                : null,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 24),
-                        
+
                         // Divider with label
                         Row(
                           children: [
                             Expanded(child: Divider()),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8.0,
+                              ),
                               child: Text(
                                 'CLIMATE CONDITIONS',
                                 style: TextStyle(
@@ -1206,9 +1319,9 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                             Expanded(child: Divider()),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // Temperature and humidity
                         Row(
                           children: [
@@ -1245,17 +1358,25 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                                           filled: true,
                                           fillColor: Colors.white,
                                           border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                             borderSide: BorderSide.none,
                                           ),
-                                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
                                           isDense: true,
                                           suffixText: '°C',
                                         ),
                                         keyboardType: TextInputType.number,
                                         textAlign: TextAlign.center,
-                                        validator: (value) => value?.isEmpty ?? true 
-                                          ? 'Required' : null,
+                                        validator:
+                                            (value) =>
+                                                value?.isEmpty ?? true
+                                                    ? 'Required'
+                                                    : null,
                                       ),
                                     ],
                                   ),
@@ -1280,7 +1401,10 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                                   padding: const EdgeInsets.all(8.0),
                                   child: Column(
                                     children: [
-                                      Icon(Icons.water_drop, color: Colors.blue),
+                                      Icon(
+                                        Icons.water_drop,
+                                        color: Colors.blue,
+                                      ),
                                       SizedBox(height: 8),
                                       Text(
                                         'Humidity',
@@ -1296,17 +1420,25 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                                           filled: true,
                                           fillColor: Colors.white,
                                           border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                             borderSide: BorderSide.none,
                                           ),
-                                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
                                           isDense: true,
                                           suffixText: '%',
                                         ),
                                         keyboardType: TextInputType.number,
                                         textAlign: TextAlign.center,
-                                        validator: (value) => value?.isEmpty ?? true 
-                                          ? 'Required' : null,
+                                        validator:
+                                            (value) =>
+                                                value?.isEmpty ?? true
+                                                    ? 'Required'
+                                                    : null,
                                       ),
                                     ],
                                   ),
@@ -1315,9 +1447,9 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // Rainfall
                         Container(
                           decoration: BoxDecoration(
@@ -1339,7 +1471,8 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                                 SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'Annual Rainfall',
@@ -1370,23 +1503,29 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                                         borderRadius: BorderRadius.circular(8),
                                         borderSide: BorderSide.none,
                                       ),
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
                                       isDense: true,
                                       suffixText: 'mm',
                                     ),
                                     keyboardType: TextInputType.number,
                                     textAlign: TextAlign.center,
-                                    validator: (value) => value?.isEmpty ?? true 
-                                      ? 'Required' : null,
+                                    validator:
+                                        (value) =>
+                                            value?.isEmpty ?? true
+                                                ? 'Required'
+                                                : null,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 24),
-                        
+
                         ElevatedButton(
                           onPressed: _interpreter == null ? null : _predictCrop,
                           style: ElevatedButton.styleFrom(
@@ -1399,37 +1538,40 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                             ),
                             elevation: 4,
                           ),
-                          child: isLoading 
-                            ? SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text(
-                                'RECOMMEND SUITABLE CROPS',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1,
-                                ),
-                              ),
+                          child:
+                              isLoading
+                                  ? SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                  : Text(
+                                    'RECOMMEND SUITABLE CROPS',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-              
+
               if (recommendedCrop != null) ...[
                 const SizedBox(height: 24),
                 FadeTransition(
                   opacity: _animation,
                   child: Card(
                     elevation: 6,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     color: Colors.green[50],
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -1452,13 +1594,19 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                             ],
                           ),
                           const SizedBox(height: 20),
-                          
+
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 24,
+                              horizontal: 16,
+                            ),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [Colors.green[700]!, Colors.green[600]!],
+                                colors: [
+                                  Colors.green[700]!,
+                                  Colors.green[600]!,
+                                ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
@@ -1486,7 +1634,10 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                                 ),
                                 const SizedBox(height: 12),
                                 Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 6,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.2),
                                     borderRadius: BorderRadius.circular(30),
@@ -1503,7 +1654,7 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                               ],
                             ),
                           ),
-                          
+
                           if (allScores != null && allScores!.length > 1) ...[
                             const SizedBox(height: 20),
                             Text(
@@ -1516,51 +1667,72 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                             ),
                             const SizedBox(height: 12),
                             ...(() {
-                              final list = allScores!.entries
-                                  .where((entry) => entry.key != recommendedCrop)
-                                  .toList();
+                              final list =
+                                  allScores!.entries
+                                      .where(
+                                        (entry) => entry.key != recommendedCrop,
+                                      )
+                                      .toList();
                               list.sort((a, b) => b.value.compareTo(a.value));
-                              return list.take(3).map((entry) => Container(
-                                    margin: EdgeInsets.only(bottom: 8),
-                                    padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: Colors.green[100]!),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Icon(Icons.eco, color: Colors.green[300], size: 20),
-                                            SizedBox(width: 8),
-                                            Text(
-                                              entry.key,
+                              return list
+                                  .take(3)
+                                  .map(
+                                    (entry) => Container(
+                                      margin: EdgeInsets.only(bottom: 8),
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 10,
+                                        horizontal: 16,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Colors.green[100]!,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.eco,
+                                                color: Colors.green[300],
+                                                size: 20,
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text(
+                                                entry.key,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          Container(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green[50],
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                            child: Text(
+                                              '${(entry.value * 100).toStringAsFixed(1)}%',
                                               style: TextStyle(
+                                                color: Colors.green[700],
                                                 fontWeight: FontWeight.w500,
+                                                fontSize: 12,
                                               ),
                                             ),
-                                          ],
-                                        ),
-                                        Container(
-                                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green[50],
-                                            borderRadius: BorderRadius.circular(16),
                                           ),
-                                          child: Text(
-                                            '${(entry.value * 100).toStringAsFixed(1)}%',
-                                            style: TextStyle(
-                                              color: Colors.green[700],
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ));
+                                  );
                             }()),
                           ],
                         ],
@@ -1569,7 +1741,7 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                   ),
                 ),
               ],
-              
+
               SizedBox(height: 24),
             ],
           ),
@@ -1577,19 +1749,20 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
       ),
     );
   }
-  
+
   Widget _buildWeatherInfo() {
     final current = weatherData!['current'];
     final location = weatherData!['location'];
-    
+
     String locationText = '';
     if (location != null) {
       final name = location['name'];
       final region = location['region'];
       final country = location['country'];
-      locationText = '$name, ${region != null && region.isNotEmpty ? '$region, ' : ''}$country';
+      locationText =
+          '$name, ${region != null && region.isNotEmpty ? '$region, ' : ''}$country';
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1611,7 +1784,7 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
           ),
           const SizedBox(height: 16),
         ],
-        
+
         Container(
           padding: EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -1646,12 +1819,12 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
             ],
           ),
         ),
-        
+
         const SizedBox(height: 12),
       ],
     );
   }
-  
+
   Widget _buildSoilInfo() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1682,9 +1855,9 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
             ],
           ),
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         if (soilProperties != null) ...[
           Text(
             'Soil Composition',
@@ -1695,7 +1868,7 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
             ),
           ),
           const SizedBox(height: 8),
-          
+
           // Soil composition bar chart
           Container(
             height: 30,
@@ -1715,29 +1888,23 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
                 children: [
                   Expanded(
                     flex: ((soilProperties!['clay'] ?? 0) * 100).round(),
-                    child: Container(
-                      color: Colors.brown[700],
-                    ),
+                    child: Container(color: Colors.brown[700]),
                   ),
                   Expanded(
                     flex: ((soilProperties!['silt'] ?? 0) * 100).round(),
-                    child: Container(
-                      color: Colors.brown[400],
-                    ),
+                    child: Container(color: Colors.brown[400]),
                   ),
                   Expanded(
                     flex: ((soilProperties!['sand'] ?? 0) * 100).round(),
-                    child: Container(
-                      color: Colors.amber[300],
-                    ),
+                    child: Container(color: Colors.amber[300]),
                   ),
                 ],
               ),
             ),
           ),
-          
+
           const SizedBox(height: 8),
-          
+
           // Legend
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1745,25 +1912,25 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
               _soilLegendItem(
                 'Clay',
                 Colors.brown[700]!,
-                '${((soilProperties!['clay'] ?? 0) * 100).toStringAsFixed(1)}%'
+                '${((soilProperties!['clay'] ?? 0) * 100).toStringAsFixed(1)}%',
               ),
               SizedBox(width: 16),
               _soilLegendItem(
                 'Silt',
                 Colors.brown[400]!,
-                '${((soilProperties!['silt'] ?? 0) * 100).toStringAsFixed(1)}%'
+                '${((soilProperties!['silt'] ?? 0) * 100).toStringAsFixed(1)}%',
               ),
               SizedBox(width: 16),
               _soilLegendItem(
                 'Sand',
                 Colors.amber[300]!,
-                '${((soilProperties!['sand'] ?? 0) * 100).toStringAsFixed(1)}%'
+                '${((soilProperties!['sand'] ?? 0) * 100).toStringAsFixed(1)}%',
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Other soil properties
           Container(
             padding: EdgeInsets.all(12),
@@ -1793,7 +1960,7 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
       ],
     );
   }
-  
+
   Widget _soilLegendItem(String label, Color color, String percentage) {
     return Row(
       children: [
@@ -1813,8 +1980,13 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
       ],
     );
   }
-  
-  Widget _soilPropertyItem(String label, String value, IconData icon, Color color) {
+
+  Widget _soilPropertyItem(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Column(
       children: [
         Container(
@@ -1828,23 +2000,19 @@ class _CropRecommendationScreenState extends State<CropRecommendationScreen> wit
         const SizedBox(height: 6),
         Text(
           value,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[700],
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
       ],
     );
   }
-  
-  Widget _weatherInfoItem(IconData icon, String value, String label, Color bgColor) {
+
+  Widget _weatherInfoItem(
+    IconData icon,
+    String value,
+    String label,
+    Color bgColor,
+  ) {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(

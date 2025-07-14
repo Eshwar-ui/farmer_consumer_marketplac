@@ -1,6 +1,7 @@
 // lib/screens/market_price_screen.dart
 
 import 'package:farmer_consumer_marketplace/services/market_data_service.dart';
+import 'package:farmer_consumer_marketplace/widgets/common/app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -13,7 +14,7 @@ class MarketPriceScreen extends StatefulWidget {
 
 class _MarketPriceScreenState extends State<MarketPriceScreen> {
   final AgmarknetService _agmarknetService = AgmarknetService();
-  
+
   List<MarketPrice> _prices = [];
   bool _isLoading = false;
   String? _error;
@@ -22,7 +23,7 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> {
   List<String> _states = [];
   List<String> _districts = [];
   List<String> _commodities = [];
-  
+
   // Selected filters
   String? _selectedState;
   String? _selectedDistrict;
@@ -49,17 +50,17 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> {
       setState(() {
         _states = statesData;
         _commodities = commoditiesData;
-        
+
         // Set default selections
         if (_states.isNotEmpty) {
           _selectedState = 'Maharashtra'; // Default to Maharashtra if available
         }
-        
+
         if (_commodities.isNotEmpty) {
           _selectedCommodity = 'Tomato'; // Default to Tomato if available
         }
       });
-      
+
       // Load districts for the selected state
       if (_selectedState != null) {
         await _loadDistricts();
@@ -110,7 +111,8 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> {
       if (data['records'] != null) {
         if (data['records'].isEmpty) {
           setState(() {
-            _error = "No records found for this selection. Try changing filters.";
+            _error =
+                "No records found for this selection. Try changing filters.";
             _prices = [];
           });
         } else {
@@ -141,7 +143,9 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> {
     }
 
     try {
-      final districtsData = await _agmarknetService.getDistricts(_selectedState!);
+      final districtsData = await _agmarknetService.getDistricts(
+        _selectedState!,
+      );
       setState(() {
         _districts = districtsData;
         _selectedDistrict = null;
@@ -159,7 +163,7 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> {
       firstDate: DateTime(2000),
       lastDate: DateTime.now(),
     );
-    
+
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
@@ -170,44 +174,52 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-     
+      appBar: CustomAppBar(title: 'Prices'),
+
       body: Column(
         children: [
           _buildFilterSection(),
           const Divider(),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
-                  ))
-                : _error != null
+            child:
+                _isLoading
+                    ? const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                      ),
+                    )
+                    : _error != null
                     ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.error_outline, color: Colors.orange, size: 48),
-                              const SizedBox(height: 16),
-                              Text(
-                                _error!,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: Colors.red),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Colors.orange,
+                              size: 48,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _error!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              onPressed: _loadInitialData,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Refresh with Default Values'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green[700],
+                                foregroundColor: Colors.white,
                               ),
-                              const SizedBox(height: 24),
-                              ElevatedButton.icon(
-                                onPressed: _loadInitialData,
-                                icon: const Icon(Icons.refresh),
-                                label: const Text('Refresh with Default Values'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green[700],
-                                  foregroundColor: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      )
+                      ),
+                    )
                     : _buildPricesList(),
           ),
         ],
@@ -226,10 +238,7 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> {
             children: [
               const Text(
                 'Filter Market Prices',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               // Add a refresh button
               IconButton(
@@ -251,10 +260,10 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> {
             value: _selectedState,
             isExpanded: true,
             items: [
-              ..._states.map((state) => DropdownMenuItem<String>(
-                    value: state,
-                    child: Text(state),
-                  )),
+              ..._states.map(
+                (state) =>
+                    DropdownMenuItem<String>(value: state, child: Text(state)),
+              ),
             ],
             onChanged: (value) {
               setState(() {
@@ -271,7 +280,10 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> {
                   decoration: const InputDecoration(
                     labelText: 'District',
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                   value: _selectedDistrict,
                   items: [
@@ -279,10 +291,12 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> {
                       value: null,
                       child: Text('All Districts'),
                     ),
-                    ..._districts.map((district) => DropdownMenuItem<String>(
-                          value: district,
-                          child: Text(district),
-                        )),
+                    ..._districts.map(
+                      (district) => DropdownMenuItem<String>(
+                        value: district,
+                        child: Text(district),
+                      ),
+                    ),
                   ],
                   onChanged: (value) {
                     setState(() {
@@ -301,15 +315,23 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Commodity *',
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     hintText: 'Select a commodity',
                   ),
                   value: _selectedCommodity,
                   isExpanded: true,
-                  items: _commodities.map((commodity) => DropdownMenuItem<String>(
-                        value: commodity,
-                        child: Text(commodity),
-                      )).toList(),
+                  items:
+                      _commodities
+                          .map(
+                            (commodity) => DropdownMenuItem<String>(
+                              value: commodity,
+                              child: Text(commodity),
+                            ),
+                          )
+                          .toList(),
                   onChanged: (value) {
                     setState(() {
                       _selectedCommodity = value;
@@ -329,7 +351,10 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Date',
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -397,53 +422,41 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> {
                     ),
                     Text(
                       price.arrivalDate,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(color: Colors.grey[600]),
                     ),
                   ],
                 ),
                 const Divider(),
                 Row(
                   children: [
-                    Expanded(
-                      child: _buildInfoItem('State', price.state),
-                    ),
-                    Expanded(
-                      child: _buildInfoItem('District', price.district),
-                    ),
+                    Expanded(child: _buildInfoItem('State', price.state)),
+                    Expanded(child: _buildInfoItem('District', price.district)),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Expanded(
-                      child: _buildInfoItem('Market', price.market),
-                    ),
-                    Expanded(
-                      child: _buildInfoItem('Grade', price.grade),
-                    ),
+                    Expanded(child: _buildInfoItem('Market', price.market)),
+                    Expanded(child: _buildInfoItem('Grade', price.grade)),
                   ],
                 ),
                 const SizedBox(height: 16),
                 const Text(
                   'Price Range (₹)',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
+                    Expanded(child: _buildPriceItem('Min', price.minPrice)),
                     Expanded(
-                      child: _buildPriceItem('Min', price.minPrice),
+                      child: _buildPriceItem(
+                        'Modal',
+                        price.modalPrice,
+                        isHighlighted: true,
+                      ),
                     ),
-                    Expanded(
-                      child: _buildPriceItem('Modal', price.modalPrice, isHighlighted: true),
-                    ),
-                    Expanded(
-                      child: _buildPriceItem('Max', price.maxPrice),
-                    ),
+                    Expanded(child: _buildPriceItem('Max', price.maxPrice)),
                   ],
                 ),
               ],
@@ -458,32 +471,23 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        Text(value, style: const TextStyle(fontSize: 16)),
       ],
     );
   }
 
-  Widget _buildPriceItem(String label, String value, {bool isHighlighted = false}) {
+  Widget _buildPriceItem(
+    String label,
+    String value, {
+    bool isHighlighted = false,
+  }) {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: isHighlighted ? Colors.green[50] : Colors.grey[100],
         borderRadius: BorderRadius.circular(4),
-        border: isHighlighted
-            ? Border.all(color: Colors.green.shade700)
-            : null,
+        border: isHighlighted ? Border.all(color: Colors.green.shade700) : null,
       ),
       child: Column(
         children: [

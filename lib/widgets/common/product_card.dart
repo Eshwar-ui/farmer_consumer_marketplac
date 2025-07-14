@@ -48,58 +48,9 @@ class ProductCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Product image
-              Container(
-                height: 120.0,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(12.0),
-                  ),
-                  image: product.imageUrls?.isNotEmpty == true
-                      ? DecorationImage(
-                          image: NetworkImage(product.imageUrls!.first),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
-                ),
-                child: Stack(
-                  children: [
-                    if (product.imageUrls?.isEmpty ?? true)
-                      Center(
-                        child: Icon(
-                          _getIconForCategory(product.category),
-                          size: 48.0,
-                          color: Colors.grey[400],
-                        ),
-                      ),
-                    if (product.organic)
-                      Positioned(
-                        top: 8.0,
-                        right: 8.0,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 6.0,
-                            vertical: 2.0,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            borderRadius: BorderRadius.circular(4.0),
-                          ),
-                          child: Text(
-                            'Organic',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10.0,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              
+              // Product image carousel
+              _buildProductImageCarousel(),
+
               // Product details
               Expanded(
                 child: Padding(
@@ -186,9 +137,7 @@ class ProductCard extends StatelessWidget {
     return Card(
       elevation: 2.0,
       margin: EdgeInsets.symmetric(vertical: 6.0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.0),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12.0),
@@ -197,32 +146,10 @@ class ProductCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Product image
-              Container(
-                width: 80.0,
-                height: 80.0,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(8.0),
-                  image: product.imageUrls?.isNotEmpty == true
-                      ? DecorationImage(
-                          image: NetworkImage(product.imageUrls!.first),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
-                ),
-                child: product.imageUrls?.isEmpty ?? true
-                    ? Center(
-                        child: Icon(
-                          _getIconForCategory(product.category),
-                          size: 36.0,
-                          color: Colors.grey[400],
-                        ),
-                      )
-                    : null,
-              ),
+              // Product image carousel
+              _buildProductImageCarousel(isList: true),
               SizedBox(width: 16.0),
-              
+
               // Product details
               Expanded(
                 child: Column(
@@ -263,10 +190,7 @@ class ProductCard extends StatelessWidget {
                     SizedBox(height: 4.0),
                     Text(
                       product.description,
-                      style: TextStyle(
-                        fontSize: 14.0,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 14.0, color: Colors.grey[600]),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -358,6 +282,60 @@ class ProductCard extends StatelessWidget {
     );
   }
 
+  Widget _buildProductImageCarousel({bool isList = false}) {
+    final double imgWidth = isList ? 80.0 : double.infinity;
+    final double imgHeight = isList ? 80.0 : 120.0;
+    final borderRadius = BorderRadius.circular(12.0);
+    final images = product.imageUrls ?? [];
+    if (images.isEmpty) {
+      return Container(
+        width: imgWidth,
+        height: imgHeight,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: borderRadius,
+        ),
+        child: Center(
+          child: Icon(
+            _getIconForCategory(product.category),
+            size: isList ? 32.0 : 48.0,
+            color: Colors.grey[400],
+          ),
+        ),
+      );
+    } else if (images.length == 1) {
+      return ClipRRect(
+        borderRadius: borderRadius,
+        child: Image.network(
+          images.first,
+          width: imgWidth,
+          height: imgHeight,
+          fit: BoxFit.cover,
+          errorBuilder:
+              (context, error, stackTrace) => Container(
+                color: Colors.grey[200],
+                child: Center(
+                  child: Icon(
+                    _getIconForCategory(product.category),
+                    size: isList ? 32.0 : 48.0,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ),
+        ),
+      );
+    } else {
+      // Carousel
+      return _ProductImageCarousel(
+        imageUrls: images,
+        width: imgWidth,
+        height: imgHeight,
+        borderRadius: borderRadius,
+        fallbackIcon: _getIconForCategory(product.category),
+      );
+    }
+  }
+
   IconData _getIconForCategory(ProductCategory category) {
     switch (category) {
       case ProductCategory.fruits:
@@ -435,12 +413,10 @@ class ProductCardSkeleton extends StatelessWidget {
               height: 120.0,
               decoration: BoxDecoration(
                 color: Colors.grey[300],
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(12.0),
-                ),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12.0)),
               ),
             ),
-            
+
             // Details skeleton
             Padding(
               padding: const EdgeInsets.all(12.0),
@@ -453,11 +429,7 @@ class ProductCardSkeleton extends StatelessWidget {
                     color: Colors.grey[300],
                   ),
                   SizedBox(height: 8.0),
-                  Container(
-                    height: 10.0,
-                    width: 80.0,
-                    color: Colors.grey[300],
-                  ),
+                  Container(height: 10.0, width: 80.0, color: Colors.grey[300]),
                   SizedBox(height: 8.0),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -496,9 +468,7 @@ class ProductCardSkeleton extends StatelessWidget {
     return Card(
       elevation: 2.0,
       margin: EdgeInsets.symmetric(vertical: 6.0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.0),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Row(
@@ -514,7 +484,7 @@ class ProductCardSkeleton extends StatelessWidget {
               ),
             ),
             SizedBox(width: 16.0),
-            
+
             // Details skeleton
             Expanded(
               child: Column(
@@ -572,7 +542,7 @@ class ProductDetailCard extends StatelessWidget {
   final VoidCallback? onBuyNow;
   final Function(double)? onQuantityChanged;
   final double initialQuantity;
-  
+
   const ProductDetailCard({
     Key? key,
     required this.product,
@@ -581,14 +551,12 @@ class ProductDetailCard extends StatelessWidget {
     this.onQuantityChanged,
     this.initialQuantity = 1.0,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 2.0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.0),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -627,7 +595,7 @@ class ProductDetailCard extends StatelessWidget {
               ],
             ),
             SizedBox(height: 8.0),
-            
+
             // Price and unit
             Row(
               children: [
@@ -641,51 +609,42 @@ class ProductDetailCard extends StatelessWidget {
                 ),
                 Text(
                   '/${_getUnitString(product.unit)}',
-                  style: TextStyle(
-                    fontSize: 16.0,
-                    color: Colors.grey[700],
-                  ),
+                  style: TextStyle(fontSize: 16.0, color: Colors.grey[700]),
                 ),
               ],
             ),
             SizedBox(height: 16.0),
-            
+
             // Description
             Text(
               'Description',
-              style: TextStyle(
-                fontSize: 16.0,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8.0),
             Text(
               product.description,
-              style: TextStyle(
-                fontSize: 14.0,
-                color: Colors.grey[700],
-              ),
+              style: TextStyle(fontSize: 14.0, color: Colors.grey[700]),
             ),
             SizedBox(height: 16.0),
-            
+
             // Details
             Text(
               'Details',
-              style: TextStyle(
-                fontSize: 16.0,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8.0),
             _buildDetailItem('Category', _getCategoryName(product.category)),
             Divider(height: 16.0),
-            _buildDetailItem('Quantity Available', '${product.quantity.toInt()} ${_getUnitString(product.unit)}'),
+            _buildDetailItem(
+              'Quantity Available',
+              '${product.quantity.toInt()} ${_getUnitString(product.unit)}',
+            ),
             Divider(height: 16.0),
             _buildDetailItem('Harvest Date', _formatDate(product.harvestDate)),
             Divider(height: 16.0),
             _buildDetailItem('Location', product.location),
             SizedBox(height: 24.0),
-            
+
             // Quantity selector
             if (onQuantityChanged != null)
               QuantitySelector(
@@ -697,7 +656,7 @@ class ProductDetailCard extends StatelessWidget {
                 onChanged: onQuantityChanged!,
               ),
             SizedBox(height: 24.0),
-            
+
             // Action buttons
             Row(
               children: [
@@ -732,29 +691,20 @@ class ProductDetailCard extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildDetailItem(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14.0,
-            color: Colors.grey[600],
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 14.0, color: Colors.grey[600])),
         Text(
           value,
-          style: TextStyle(
-            fontSize: 14.0,
-            fontWeight: FontWeight.w500,
-          ),
+          style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.w500),
         ),
       ],
     );
   }
-  
+
   String _getCategoryName(ProductCategory category) {
     switch (category) {
       case ProductCategory.fruits:
@@ -773,7 +723,7 @@ class ProductDetailCard extends StatelessWidget {
         return 'Other';
     }
   }
-  
+
   String _getUnitString(ProductUnit unit) {
     switch (unit) {
       case ProductUnit.kg:
@@ -792,7 +742,7 @@ class ProductDetailCard extends StatelessWidget {
         return 'ton';
     }
   }
-  
+
   double _getStepSize(ProductUnit unit) {
     switch (unit) {
       case ProductUnit.kg:
@@ -808,7 +758,7 @@ class ProductDetailCard extends StatelessWidget {
         return 0.1;
     }
   }
-  
+
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
   }
@@ -821,7 +771,7 @@ class QuantitySelector extends StatefulWidget {
   final double step;
   final String unit;
   final Function(double) onChanged;
-  
+
   const QuantitySelector({
     Key? key,
     required this.initialValue,
@@ -831,7 +781,7 @@ class QuantitySelector extends StatefulWidget {
     required this.unit,
     required this.onChanged,
   }) : super(key: key);
-  
+
   @override
   _QuantitySelectorState createState() => _QuantitySelectorState();
 }
@@ -839,20 +789,20 @@ class QuantitySelector extends StatefulWidget {
 class _QuantitySelectorState extends State<QuantitySelector> {
   late double _quantity;
   late TextEditingController _controller;
-  
+
   @override
   void initState() {
     super.initState();
     _quantity = widget.initialValue;
     _controller = TextEditingController(text: _quantity.toString());
   }
-  
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-  
+
   void _increment() {
     if (_quantity + widget.step <= widget.maxValue) {
       setState(() {
@@ -862,7 +812,7 @@ class _QuantitySelectorState extends State<QuantitySelector> {
       widget.onChanged(_quantity);
     }
   }
-  
+
   void _decrement() {
     if (_quantity - widget.step >= widget.minValue) {
       setState(() {
@@ -872,7 +822,7 @@ class _QuantitySelectorState extends State<QuantitySelector> {
       widget.onChanged(_quantity);
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -880,10 +830,7 @@ class _QuantitySelectorState extends State<QuantitySelector> {
       children: [
         Text(
           'Quantity',
-          style: TextStyle(
-            fontSize: 16.0,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 8.0),
         Row(
@@ -930,10 +877,7 @@ class _QuantitySelectorState extends State<QuantitySelector> {
             SizedBox(width: 8.0),
             Text(
               widget.unit,
-              style: TextStyle(
-                fontSize: 16.0,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.w500),
             ),
             SizedBox(width: 16.0),
             InkWell(
@@ -951,13 +895,85 @@ class _QuantitySelectorState extends State<QuantitySelector> {
             Spacer(),
             Text(
               'Available: ${widget.maxValue} ${widget.unit}',
-              style: TextStyle(
-                fontSize: 12.0,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 12.0, color: Colors.grey[600]),
             ),
           ],
         ),
+      ],
+    );
+  }
+}
+
+class _ProductImageCarousel extends StatefulWidget {
+  final List<String> imageUrls;
+  final double width;
+  final double height;
+  final BorderRadius borderRadius;
+  final IconData fallbackIcon;
+  const _ProductImageCarousel({
+    required this.imageUrls,
+    required this.width,
+    required this.height,
+    required this.borderRadius,
+    required this.fallbackIcon,
+  });
+  @override
+  State<_ProductImageCarousel> createState() => _ProductImageCarouselState();
+}
+
+class _ProductImageCarouselState extends State<_ProductImageCarousel> {
+  int _current = 0;
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.bottomCenter,
+      children: [
+        SizedBox(
+          width: widget.width,
+          height: widget.height,
+          child: ClipRRect(
+            borderRadius: widget.borderRadius,
+            child: PageView.builder(
+              itemCount: widget.imageUrls.length,
+              onPageChanged: (i) => setState(() => _current = i),
+              itemBuilder: (context, idx) {
+                return Image.network(
+                  widget.imageUrls[idx],
+                  fit: BoxFit.cover,
+                  errorBuilder:
+                      (context, error, stackTrace) => Container(
+                        color: Colors.grey[200],
+                        child: Center(
+                          child: Icon(
+                            widget.fallbackIcon,
+                            size: 40,
+                            color: Colors.grey[400],
+                          ),
+                        ),
+                      ),
+                );
+              },
+            ),
+          ),
+        ),
+        if (widget.imageUrls.length > 1)
+          Positioned(
+            bottom: 6,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(widget.imageUrls.length, (idx) {
+                return Container(
+                  margin: EdgeInsets.symmetric(horizontal: 2),
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _current == idx ? Colors.green : Colors.grey[400],
+                  ),
+                );
+              }),
+            ),
+          ),
       ],
     );
   }

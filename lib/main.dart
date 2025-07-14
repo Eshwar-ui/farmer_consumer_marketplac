@@ -36,7 +36,7 @@ class _MyAppState extends State<MyApp> {
             backgroundColor: AppColors.primaryColor,
             elevation: 0,
           ),
-          cardTheme: CardTheme(
+          cardTheme: CardThemeData(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),

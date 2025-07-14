@@ -3,21 +3,24 @@ import 'package:farmer_consumer_marketplace/widgets/common/app_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:farmer_consumer_marketplace/services/firebase_service.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class InventoryManagement extends StatefulWidget {
   @override
   _InventoryManagementState createState() => _InventoryManagementState();
 }
 
-class _InventoryManagementState extends State<InventoryManagement> with SingleTickerProviderStateMixin {
+class _InventoryManagementState extends State<InventoryManagement>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final FirebaseService _firebaseService = FirebaseService();
-  
+
   // Inventory data
   List<Map<String, dynamic>> _inventoryItems = [];
   bool _isLoading = true;
   String? _errorMessage;
-  
+
   // Controllers for adding new product
   final TextEditingController _productNameController = TextEditingController();
   final TextEditingController _categoryController = TextEditingController();
@@ -26,21 +29,34 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _harvestDateController = TextEditingController();
   final TextEditingController _expiryDateController = TextEditingController();
-  
+
   // For filtering
   String _searchQuery = '';
   String _filterCategory = 'All Categories';
-  late List<String> _categories = ['All Categories', 'Vegetables', 'Fruits', 'Grains', 'Dairy'];
+  late List<String> _categories = [
+    'All Categories',
+    'Vegetables',
+    'Fruits',
+    'Grains',
+    'Dairy',
+  ];
+
+  // For product images
+  final ImagePicker _imagePicker = ImagePicker();
+  List<XFile> _selectedProductImages = [];
+  bool _isUploadingImages = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    
+
     // Default values
     _unitController.text = 'kg';
-    _harvestDateController.text = DateFormat('dd MMM yyyy').format(DateTime.now());
-    
+    _harvestDateController.text = DateFormat(
+      'dd MMM yyyy',
+    ).format(DateTime.now());
+
     // Load inventory data
     _loadInventoryData();
   }
@@ -52,13 +68,14 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
     });
 
     try {
-      List<Map<String, dynamic>> items = await _firebaseService.getFarmerInventory();
-      
+      List<Map<String, dynamic>> items =
+          await _firebaseService.getFarmerInventory();
+
       setState(() {
         _inventoryItems = items;
         _isLoading = false;
       });
-      
+
       // Update categories list with actual categories from inventory
       _updateCategoriesList();
     } catch (e) {
@@ -72,13 +89,13 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
   void _updateCategoriesList() {
     // Get unique categories from inventory
     Set<String> categoriesSet = {'All Categories'};
-    
+
     for (var item in _inventoryItems) {
       if (item.containsKey('category') && item['category'] != null) {
         categoriesSet.add(item['category']);
       }
     }
-    
+
     setState(() {
       _categories = categoriesSet.toList();
     });
@@ -87,31 +104,64 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
   List<Map<String, dynamic>> get _filteredInventory {
     return _inventoryItems.where((item) {
       // Apply category filter
-      if (_filterCategory != 'All Categories' && item['category'] != _filterCategory) {
+      if (_filterCategory != 'All Categories' &&
+          item['category'] != _filterCategory) {
         return false;
       }
-      
+
       // Apply search filter
       if (_searchQuery.isNotEmpty) {
         String name = item['name']?.toString().toLowerCase() ?? '';
         return name.contains(_searchQuery.toLowerCase());
       }
-      
+
       return true;
     }).toList();
   }
 
-  Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+  Future<void> _selectDate(
+    BuildContext context,
+    TextEditingController controller,
+  ) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
     );
-    
+
     if (picked != null) {
       controller.text = DateFormat('dd MMM yyyy').format(picked);
     }
+  }
+
+  Future<List<String>> _uploadProductImages(List<XFile> images) async {
+    setState(() {
+      _isUploadingImages = true;
+    });
+    List<String> urls = [];
+    try {
+      for (final img in images) {
+        final fileName =
+            'product_${DateTime.now().millisecondsSinceEpoch}_${img.name}';
+        // final ref = _firebaseService.getProductImageStorageRef(fileName);
+        // await ref.putFile(File(img.path));
+        // final url = await ref.getDownloadURL();
+        // urls.add(url);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error uploading images: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isUploadingImages = false;
+      });
+    }
+    return urls;
   }
 
   Future<void> _addInventoryItem() async {
@@ -127,12 +177,15 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
       );
       return;
     }
-
     setState(() {
       _isLoading = true;
     });
-
     try {
+      // Upload product images if any
+      List<String> imageUrls = [];
+      if (_selectedProductImages.isNotEmpty) {
+        imageUrls = await _uploadProductImages(_selectedProductImages);
+      }
       // Prepare item data
       Map<String, dynamic> item = {
         'name': _productNameController.text,
@@ -140,26 +193,30 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
         'quantity': int.parse(_quantityController.text),
         'unit': _unitController.text,
         'unitPrice': double.parse(_priceController.text),
-        'totalValue': int.parse(_quantityController.text) * double.parse(_priceController.text),
+        'totalValue':
+            int.parse(_quantityController.text) *
+            double.parse(_priceController.text),
         'harvestDate': _harvestDateController.text,
         'expiryDate': _expiryDateController.text,
         'status': 'In Stock',
+        'imageUrls': imageUrls,
       };
-      
       bool success = await _firebaseService.addInventoryItem(item);
-      
       if (success) {
         // Clear form
         _productNameController.clear();
         _categoryController.clear();
         _quantityController.clear();
         _priceController.clear();
-        _harvestDateController.text = DateFormat('dd MMM yyyy').format(DateTime.now());
+        _harvestDateController.text = DateFormat(
+          'dd MMM yyyy',
+        ).format(DateTime.now());
         _expiryDateController.clear();
-        
+        setState(() {
+          _selectedProductImages.clear();
+        });
         // Reload inventory
         await _loadInventoryData();
-        
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -167,7 +224,6 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
             backgroundColor: Colors.green,
           ),
         );
-        
         // Switch to Inventory tab
         _tabController.animateTo(0);
       } else {
@@ -180,10 +236,7 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
     } finally {
       setState(() {
@@ -192,18 +245,24 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
     }
   }
 
-  Future<void> _updateInventoryItem(String itemId, Map<String, dynamic> updates) async {
+  Future<void> _updateInventoryItem(
+    String itemId,
+    Map<String, dynamic> updates,
+  ) async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      bool success = await _firebaseService.updateInventoryItem(itemId, updates);
-      
+      bool success = await _firebaseService.updateInventoryItem(
+        itemId,
+        updates,
+      );
+
       if (success) {
         // Reload inventory
         await _loadInventoryData();
-        
+
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -221,10 +280,7 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
     } finally {
       setState(() {
@@ -235,37 +291,40 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
 
   Future<void> _deleteInventoryItem(String itemId) async {
     // Show confirmation dialog
-    bool confirm = await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Delete Item'),
-        content: Text('Are you sure you want to delete this item?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    ) ?? false;
-    
+    bool confirm =
+        await showDialog(
+          context: context,
+          builder:
+              (context) => AlertDialog(
+                title: Text('Delete Item'),
+                content: Text('Are you sure you want to delete this item?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: Text('Delete', style: TextStyle(color: Colors.red)),
+                  ),
+                ],
+              ),
+        ) ??
+        false;
+
     if (!confirm) return;
-    
+
     setState(() {
       _isLoading = true;
     });
 
     try {
       bool success = await _firebaseService.deleteInventoryItem(itemId);
-      
+
       if (success) {
         // Reload inventory
         await _loadInventoryData();
-        
+
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -283,10 +342,7 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
     } finally {
       setState(() {
@@ -298,115 +354,156 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      
-      floatingActionButton: IconButton(
+      appBar: AppBar(
+        backgroundColor: Colors.green,
+        centerTitle: true,
+        foregroundColor: Colors.white,
+        bottom: TabBar(
+          unselectedLabelStyle: TextStyle(
+            fontSize: 14.0,
+            fontWeight: FontWeight.normal,
+          ),
+          labelStyle: TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 16.0,
+            fontWeight: FontWeight.bold,
+          ),
+          controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white54,
+          indicatorColor: Colors.white,
+          tabs: [
+            Tab(text: 'Inventory'),
+            Tab(text: 'Add Product'),
+            Tab(text: 'Summary'),
+          ],
+        ),
+        title: Text(
+          'Inventory Management',
+          style: TextStyle(
+            fontSize: 18.0,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Roboto',
+          ),
+        ),
+        actions: [
+          IconButton(
             icon: Icon(Icons.refresh),
             onPressed: _loadInventoryData,
             tooltip: 'Refresh inventory',
           ),
-      body: Column(
-        children: [
-          TabBar(
-            controller: _tabController,
-            labelColor: Colors.green,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: Colors.green,
-            tabs: [
-              Tab(text: 'Inventory'),
-              Tab(text: 'Add Product'),
-              Tab(text: 'Summary'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildInventoryTab(),
-                _buildAddProductTab(),
-                _buildSummaryTab(),
-              ],
-            ),
-          ),
         ],
+      ),
+
+      body: SafeArea(
+        child: Column(
+          children: [
+            // TabBar(
+            //   controller: _tabController,
+            //   labelColor: Colors.green,
+            //   unselectedLabelColor: Colors.grey,
+            //   indicatorColor: Colors.green,
+            //   tabs: [
+            //     Tab(text: 'Inventory'),
+            //     Tab(text: 'Add Product'),
+            //     Tab(text: 'Summary'),
+            //   ],
+            // ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildInventoryTab(),
+                  _buildAddProductTab(),
+                  _buildSummaryTab(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildInventoryTab() {
-    return _isLoading 
-      ? Center(child: CircularProgressIndicator())
-      : _errorMessage != null
+    return _isLoading
+        ? Center(child: CircularProgressIndicator())
+        : _errorMessage != null
         ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, color: Colors.red, size: 48),
-                SizedBox(height: 16),
-                Text(
-                  'Error loading inventory',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 8),
-                Text(_errorMessage!),
-                SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _loadInventoryData,
-                  child: Text('Retry'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                  ),
-                ),
-              ],
-            ),
-          )
-        : Column(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Search products...',
-                          prefixIcon: Icon(Icons.search),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(vertical: 0.0),
+              Icon(Icons.error_outline, color: Colors.red, size: 48),
+              SizedBox(height: 16),
+              Text(
+                'Error loading inventory',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text(_errorMessage!),
+              SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadInventoryData,
+                child: Text('Retry'),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              ),
+            ],
+          ),
+        )
+        : Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search products...',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10.0),
                         ),
-                        onChanged: (value) {
-                          setState(() {
-                            _searchQuery = value;
-                          });
-                        },
+                        contentPadding: EdgeInsets.symmetric(vertical: 0.0),
                       ),
-                    ),
-                    SizedBox(width: 8.0),
-                    DropdownButton<String>(
-                      value: _filterCategory,
-                      items: _categories.map((category) {
-                        return DropdownMenuItem(
-                          value: category,
-                          child: Text(category),
-                        );
-                      }).toList(),
                       onChanged: (value) {
                         setState(() {
-                          _filterCategory = value!;
+                          _searchQuery = value;
                         });
                       },
                     ),
-                  ],
-                ),
+                  ),
+                  SizedBox(width: 8.0),
+                  DropdownButton<String>(
+                    value: _filterCategory,
+                    items:
+                        _categories.map((category) {
+                          return DropdownMenuItem(
+                            value: category,
+                            child: Text(category),
+                          );
+                        }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _filterCategory = value!;
+                      });
+                    },
+                  ),
+                ],
               ),
-              Expanded(
-                child: _filteredInventory.isEmpty
-                    ? Center(
+            ),
+            Expanded(
+              child:
+                  _filteredInventory.isEmpty
+                      ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.inventory_2, size: 72, color: Colors.grey[400]),
+                            Icon(
+                              Icons.inventory_2,
+                              size: 72,
+                              color: Colors.grey[400],
+                            ),
                             SizedBox(height: 16),
                             Text(
                               'No inventory items found',
@@ -426,7 +523,7 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                           ],
                         ),
                       )
-                    : ListView.builder(
+                      : ListView.builder(
                         padding: EdgeInsets.symmetric(horizontal: 16.0),
                         itemCount: _filteredInventory.length,
                         itemBuilder: (context, index) {
@@ -438,6 +535,8 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                               borderRadius: BorderRadius.circular(12.0),
                             ),
                             child: ExpansionTile(
+                              childrenPadding: null,
+                              collapsedBackgroundColor: null,
                               title: Text(
                                 item['name'],
                                 style: TextStyle(
@@ -447,15 +546,15 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                               ),
                               subtitle: Text(
                                 '${item['quantity']} ${item['unit']} • ₹${item['unitPrice']}/${item['unit']}',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                ),
+                                style: TextStyle(color: Colors.grey[600]),
                               ),
                               leading: Container(
                                 width: 48.0,
                                 height: 48.0,
                                 decoration: BoxDecoration(
-                                  color: _getCategoryColor(item['category']).withOpacity(0.2),
+                                  color: _getCategoryColor(
+                                    item['category'],
+                                  ).withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(8.0),
                                 ),
                                 child: Icon(
@@ -471,16 +570,23 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                                     fontSize: 12.0,
                                   ),
                                 ),
-                                backgroundColor: item['status'] == 'Low Stock'
-                                    ? Colors.orange
-                                    : Colors.green,
+                                backgroundColor:
+                                    item['status'] == 'Low Stock'
+                                        ? Colors.orange
+                                        : Colors.green,
                                 padding: EdgeInsets.zero,
                               ),
+                              // Remove dividers by setting childrenPadding and collapsedBackgroundColor to null (default)
+                              // and not using any Divider widgets in children.
+                              // ExpansionTile by default shows a divider above and below, but these are part of the ListView/Card, not ExpansionTile.
+                              // If you want to remove the divider between tiles, ensure ListView.separated is not used with a separator.
+                              // Here, just keep the children as is, with no Divider widgets.
                               children: [
                                 Padding(
                                   padding: EdgeInsets.all(16.0),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
@@ -503,11 +609,15 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                                       ),
                                       SizedBox(height: 16.0),
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
                                         children: [
                                           TextButton.icon(
                                             onPressed: () {
-                                              _showEditItemDialog(context, item);
+                                              _showEditItemDialog(
+                                                context,
+                                                item,
+                                              );
                                             },
                                             icon: Icon(Icons.edit, size: 16.0),
                                             label: Text('Edit'),
@@ -520,7 +630,10 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                                             onPressed: () {
                                               _deleteInventoryItem(item['id']);
                                             },
-                                            icon: Icon(Icons.delete, size: 16.0),
+                                            icon: Icon(
+                                              Icons.delete,
+                                              size: 16.0,
+                                            ),
                                             label: Text('Delete'),
                                             style: TextButton.styleFrom(
                                               foregroundColor: Colors.red,
@@ -536,9 +649,9 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                           );
                         },
                       ),
-              ),
-            ],
-          );
+            ),
+          ],
+        );
   }
 
   Widget _buildAddProductTab() {
@@ -549,18 +662,23 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
         children: [
           Text(
             'Add New Product',
-            style: TextStyle(
-              fontSize: 20.0,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold),
           ),
+          SizedBox(height: 16.0),
+          // Product Images Picker & Preview
+          Text('Product Images', style: TextStyle(fontWeight: FontWeight.bold)),
+          SizedBox(height: 8.0),
+          _buildProductImagesPicker(),
           SizedBox(height: 16.0),
           TextField(
             controller: _productNameController,
             decoration: InputDecoration(
               labelText: 'Product Name*',
               border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 14.0,
+              ),
             ),
           ),
           SizedBox(height: 12.0),
@@ -569,7 +687,10 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
             decoration: InputDecoration(
               labelText: 'Category*',
               border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 14.0,
+              ),
               suffixIcon: PopupMenuButton<String>(
                 icon: Icon(Icons.arrow_drop_down),
                 onSelected: (value) {
@@ -577,8 +698,9 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                 },
                 itemBuilder: (context) {
                   // Filter out "All Categories"
-                  List<String> categories = _categories.where((c) => c != 'All Categories').toList();
-                  
+                  List<String> categories =
+                      _categories.where((c) => c != 'All Categories').toList();
+
                   return categories.map((category) {
                     return PopupMenuItem<String>(
                       value: category,
@@ -598,12 +720,13 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                   decoration: InputDecoration(
                     labelText: 'Quantity*',
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 14.0,
+                    ),
                   ),
                   keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 ),
               ),
               SizedBox(width: 12.0),
@@ -613,7 +736,10 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                   decoration: InputDecoration(
                     labelText: 'Unit',
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 14.0,
+                    ),
                     suffixIcon: PopupMenuButton<String>(
                       icon: Icon(Icons.arrow_drop_down),
                       onSelected: (value) {
@@ -646,7 +772,10 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
             decoration: InputDecoration(
               labelText: 'Price per unit (₹)*',
               border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 14.0,
+              ),
             ),
             keyboardType: TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
@@ -662,7 +791,10 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                   decoration: InputDecoration(
                     labelText: 'Harvest Date',
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 14.0,
+                    ),
                     suffixIcon: IconButton(
                       icon: Icon(Icons.calendar_today),
                       onPressed: () {
@@ -680,7 +812,10 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                   decoration: InputDecoration(
                     labelText: 'Expiry Date',
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 14.0,
+                    ),
                     suffixIcon: IconButton(
                       icon: Icon(Icons.calendar_today),
                       onPressed: () {
@@ -699,20 +834,29 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
               Expanded(
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _addInventoryItem,
-                  child: _isLoading 
-                      ? SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text('Add Product'),
                   style: ElevatedButton.styleFrom(
+                    textStyle: TextStyle(
+                      fontSize: 16.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
                     backgroundColor: Colors.green,
                     padding: EdgeInsets.symmetric(vertical: 16.0),
                   ),
+                  child:
+                      _isLoading
+                          ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                          : Text('Add Product'),
                 ),
               ),
               SizedBox(width: 12.0),
@@ -724,11 +868,16 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                     _categoryController.clear();
                     _quantityController.clear();
                     _priceController.clear();
-                    _harvestDateController.text = DateFormat('dd MMM yyyy').format(DateTime.now());
+                    _harvestDateController.text = DateFormat(
+                      'dd MMM yyyy',
+                    ).format(DateTime.now());
                     _expiryDateController.clear();
                   },
                   child: Text('Reset'),
                   style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
                     foregroundColor: Colors.grey[700],
                     side: BorderSide(color: Colors.grey[400]!),
                     padding: EdgeInsets.symmetric(vertical: 16.0),
@@ -738,24 +887,115 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
             ],
           ),
           SizedBox(height: 8.0),
-          Text(
-            '* Required fields',
-            style: TextStyle(
-              fontSize: 12.0,
-              color: Colors.grey[600],
-              fontStyle: FontStyle.italic,
-            ),
-          ),
+          // Text(
+          //   '* Required fields',
+          //   style: TextStyle(
+          //     fontSize: 12.0,
+          //     color: Colors.grey[600],
+          //     fontStyle: FontStyle.italic,
+          //   ),
+          // ),
         ],
       ),
     );
+  }
+
+  Widget _buildProductImagesPicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            ElevatedButton.icon(
+              onPressed: _isUploadingImages ? null : _pickProductImages,
+              icon: Icon(Icons.add_a_photo),
+              label: Text('Add Images'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+            ),
+            SizedBox(width: 12),
+            if (_selectedProductImages.isNotEmpty)
+              Text('${_selectedProductImages.length} selected'),
+          ],
+        ),
+        SizedBox(height: 8),
+        if (_selectedProductImages.isNotEmpty)
+          SizedBox(
+            height: 80,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _selectedProductImages.length,
+              separatorBuilder: (_, __) => SizedBox(width: 8),
+              itemBuilder: (context, idx) {
+                return Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(
+                        File(_selectedProductImages[idx].path),
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedProductImages.removeAt(idx);
+                          });
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _pickProductImages() async {
+    try {
+      final List<XFile>? picked = await _imagePicker.pickMultiImage(
+        imageQuality: 80,
+      );
+      if (picked != null && picked.isNotEmpty) {
+        setState(() {
+          _selectedProductImages.addAll(picked);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error picking images: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _buildSummaryTab() {
     if (_isLoading) {
       return Center(child: CircularProgressIndicator());
     }
-    
+
     if (_errorMessage != null) {
       return Center(
         child: Column(
@@ -773,18 +1013,16 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
             ElevatedButton(
               onPressed: _loadInventoryData,
               child: Text('Retry'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             ),
           ],
         ),
       );
     }
-    
+
     // Calculate summary data
     Map<String, dynamic> summary = _calculateInventorySummary();
-    
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.0),
       child: Column(
@@ -792,13 +1030,10 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
         children: [
           Text(
             'Inventory Summary',
-            style: TextStyle(
-              fontSize: 20.0,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 16.0),
-          
+
           // Overview card
           _buildSummaryCard(
             'Inventory Overview',
@@ -810,21 +1045,20 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
             color: Colors.blue,
             icon: Icons.inventory,
           ),
-          
+
           SizedBox(height: 16.0),
-          
+
           // Category breakdown
           Text(
             'Category Breakdown',
-            style: TextStyle(
-              fontSize: 18.0,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 12.0),
-          
+
           // Category cards
-          ...(summary['categories'] as List<Map<String, dynamic>>).map((category) {
+          ...(summary['categories'] as List<Map<String, dynamic>>).map((
+            category,
+          ) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 12.0),
               child: _buildSummaryCard(
@@ -839,17 +1073,14 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
               ),
             );
           }).toList(),
-          
+
           SizedBox(height: 16.0),
-          
+
           // Expiry alerts
           if (summary['expiringItems'] > 0) ...[
             Text(
               'Expiry Alerts',
-              style: TextStyle(
-                fontSize: 18.0,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 12.0),
             Card(
@@ -890,9 +1121,7 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                           SizedBox(height: 4.0),
                           Text(
                             'You have ${summary['expiringItems']} items that will expire within the next 7 days.',
-                            style: TextStyle(
-                              color: Colors.red[700],
-                            ),
+                            style: TextStyle(color: Colors.red[700]),
                           ),
                         ],
                       ),
@@ -902,17 +1131,14 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
               ),
             ),
           ],
-          
+
           SizedBox(height: 16.0),
-          
+
           // Low stock alerts
           if (summary['lowStockItems'] > 0) ...[
             Text(
               'Low Stock Alerts',
-              style: TextStyle(
-                fontSize: 18.0,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 12.0),
             Card(
@@ -953,9 +1179,7 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                           SizedBox(height: 4.0),
                           Text(
                             'You have ${summary['lowStockItems']} items that are running low on stock.',
-                            style: TextStyle(
-                              color: Colors.orange[700],
-                            ),
+                            style: TextStyle(color: Colors.orange[700]),
                           ),
                         ],
                       ),
@@ -972,14 +1196,13 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
 
   Widget _buildSummaryCard(
     String title,
-    List<Map<String, String>> items,
-    {required Color color, required IconData icon}
-  ) {
+    List<Map<String, String>> items, {
+    required Color color,
+    required IconData icon,
+  }) {
     return Card(
       elevation: 2.0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.0),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -993,46 +1216,40 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
                     color: color.withOpacity(0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    icon,
-                    color: color,
-                    size: 24.0,
-                  ),
+                  child: Icon(icon, color: color, size: 24.0),
                 ),
                 SizedBox(width: 16.0),
                 Text(
                   title,
-                  style: TextStyle(
-                    fontSize: 18.0,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
             SizedBox(height: 16.0),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: items.map((item) {
-                return Column(
-                  children: [
-                    Text(
-                      item['value']!,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18.0,
-                      ),
-                    ),
-                    SizedBox(height: 4.0),
-                    Text(
-                      item['label']!,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14.0,
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
+              children:
+                  items.map((item) {
+                    return Column(
+                      children: [
+                        Text(
+                          item['value']!,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18.0,
+                          ),
+                        ),
+                        SizedBox(height: 4.0),
+                        Text(
+                          item['label']!,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14.0,
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
             ),
           ],
         ),
@@ -1046,18 +1263,18 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
     Set<String> categories = {};
     int expiringItems = 0;
     int lowStockItems = 0;
-    
+
     // Category breakdown
     Map<String, Map<String, dynamic>> categoryBreakdown = {};
-    
+
     for (var item in _inventoryItems) {
       // Calculate total value
       totalValue += (item['totalValue'] ?? 0).toDouble();
-      
+
       // Track categories
       String category = item['category'] ?? 'Uncategorized';
       categories.add(category);
-      
+
       // Initialize category data if needed
       if (!categoryBreakdown.containsKey(category)) {
         categoryBreakdown[category] = {
@@ -1067,19 +1284,26 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
           'value': 0,
         };
       }
-      
+
       // Update category data
-      categoryBreakdown[category]!['count'] = (categoryBreakdown[category]!['count'] ?? 0) + 1;
-      categoryBreakdown[category]!['quantity'] = (categoryBreakdown[category]!['quantity'] ?? 0) + (item['quantity'] ?? 0);
-      categoryBreakdown[category]!['value'] = (categoryBreakdown[category]!['value'] ?? 0) + (item['totalValue'] ?? 0);
-      
+      categoryBreakdown[category]!['count'] =
+          (categoryBreakdown[category]!['count'] ?? 0) + 1;
+      categoryBreakdown[category]!['quantity'] =
+          (categoryBreakdown[category]!['quantity'] ?? 0) +
+          (item['quantity'] ?? 0);
+      categoryBreakdown[category]!['value'] =
+          (categoryBreakdown[category]!['value'] ?? 0) +
+          (item['totalValue'] ?? 0);
+
       // Check for expiring items
       if (item['expiryDate'] != null) {
         try {
-          DateTime expiryDate = DateFormat('dd MMM yyyy').parse(item['expiryDate']);
+          DateTime expiryDate = DateFormat(
+            'dd MMM yyyy',
+          ).parse(item['expiryDate']);
           DateTime now = DateTime.now();
           DateTime nextWeek = now.add(Duration(days: 7));
-          
+
           if (expiryDate.isBefore(nextWeek)) {
             expiringItems++;
           }
@@ -1087,13 +1311,13 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
           // Ignore parsing errors
         }
       }
-      
+
       // Check for low stock items
       if (item['status'] == 'Low Stock') {
         lowStockItems++;
       }
     }
-    
+
     return {
       'totalItems': totalItems,
       'totalValue': totalValue.round(),
@@ -1108,11 +1332,7 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
     return Expanded(
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 16.0,
-            color: Colors.grey[600],
-          ),
+          Icon(icon, size: 16.0, color: Colors.grey[600]),
           SizedBox(width: 8.0),
           Expanded(
             child: Column(
@@ -1120,17 +1340,9 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
               children: [
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 12.0,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 12.0, color: Colors.grey[600]),
                 ),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                Text(value, style: TextStyle(fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -1140,123 +1352,137 @@ class _InventoryManagementState extends State<InventoryManagement> with SingleTi
   }
 
   void _showEditItemDialog(BuildContext context, Map<String, dynamic> item) {
-    TextEditingController nameController = TextEditingController(text: item['name']);
-    TextEditingController categoryController = TextEditingController(text: item['category']);
-    TextEditingController quantityController = TextEditingController(text: item['quantity'].toString());
-    TextEditingController unitController = TextEditingController(text: item['unit']);
-    TextEditingController priceController = TextEditingController(text: item['unitPrice'].toString());
-    TextEditingController statusController = TextEditingController(text: item['status']);
-    
+    TextEditingController nameController = TextEditingController(
+      text: item['name'],
+    );
+    TextEditingController categoryController = TextEditingController(
+      text: item['category'],
+    );
+    TextEditingController quantityController = TextEditingController(
+      text: item['quantity'].toString(),
+    );
+    TextEditingController unitController = TextEditingController(
+      text: item['unit'],
+    );
+    TextEditingController priceController = TextEditingController(
+      text: item['unitPrice'].toString(),
+    );
+    TextEditingController statusController = TextEditingController(
+      text: item['status'],
+    );
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Edit Product'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: InputDecoration(
-                  labelText: 'Product Name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              SizedBox(height: 12.0),
-              TextField(
-                controller: categoryController,
-                decoration: InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              SizedBox(height: 12.0),
-              Row(
+      builder:
+          (context) => AlertDialog(
+            title: Text('Edit Product'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: quantityController,
-                      decoration: InputDecoration(
-                        labelText: 'Quantity',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      labelText: 'Product Name',
+                      border: OutlineInputBorder(),
                     ),
                   ),
-                  SizedBox(width: 8.0),
-                  Expanded(
-                    child: TextField(
-                      controller: unitController,
-                      decoration: InputDecoration(
-                        labelText: 'Unit',
-                        border: OutlineInputBorder(),
-                      ),
+                  SizedBox(height: 12.0),
+                  TextField(
+                    controller: categoryController,
+                    decoration: InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
                     ),
+                  ),
+                  SizedBox(height: 12.0),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: quantityController,
+                          decoration: InputDecoration(
+                            labelText: 'Quantity',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      SizedBox(width: 8.0),
+                      Expanded(
+                        child: TextField(
+                          controller: unitController,
+                          decoration: InputDecoration(
+                            labelText: 'Unit',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 12.0),
+                  TextField(
+                    controller: priceController,
+                    decoration: InputDecoration(
+                      labelText: 'Price per unit (₹)',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                  ),
+                  SizedBox(height: 12.0),
+                  DropdownButtonFormField(
+                    value: statusController.text,
+                    decoration: InputDecoration(
+                      labelText: 'Status',
+                      border: OutlineInputBorder(),
+                    ),
+                    items:
+                        ['In Stock', 'Low Stock', 'Out of Stock'].map((status) {
+                          return DropdownMenuItem(
+                            value: status,
+                            child: Text(status),
+                          );
+                        }).toList(),
+                    onChanged: (value) {
+                      statusController.text = value.toString();
+                    },
                   ),
                 ],
               ),
-              SizedBox(height: 12.0),
-              TextField(
-                controller: priceController,
-                decoration: InputDecoration(
-                  labelText: 'Price per unit (₹)',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('Cancel'),
               ),
-              SizedBox(height: 12.0),
-              DropdownButtonFormField(
-                value: statusController.text,
-                decoration: InputDecoration(
-                  labelText: 'Status',
-                  border: OutlineInputBorder(),
-                ),
-                items: ['In Stock', 'Low Stock', 'Out of Stock'].map((status) {
-                  return DropdownMenuItem(
-                    value: status,
-                    child: Text(status),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  statusController.text = value.toString();
+              ElevatedButton(
+                onPressed: () {
+                  // Calculate new total value
+                  double newPrice = double.tryParse(priceController.text) ?? 0;
+                  int newQuantity = int.tryParse(quantityController.text) ?? 0;
+                  double newTotalValue = newPrice * newQuantity;
+
+                  // Update item
+                  Map<String, dynamic> updates = {
+                    'name': nameController.text,
+                    'category': categoryController.text,
+                    'quantity': newQuantity,
+                    'unit': unitController.text,
+                    'unitPrice': newPrice,
+                    'totalValue': newTotalValue,
+                    'status': statusController.text,
+                  };
+
+                  Navigator.of(context).pop();
+                  _updateInventoryItem(item['id'], updates);
                 },
+                child: Text('Save'),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // Calculate new total value
-              double newPrice = double.tryParse(priceController.text) ?? 0;
-              int newQuantity = int.tryParse(quantityController.text) ?? 0;
-              double newTotalValue = newPrice * newQuantity;
-              
-              // Update item
-              Map<String, dynamic> updates = {
-                'name': nameController.text,
-                'category': categoryController.text,
-                'quantity': newQuantity,
-                'unit': unitController.text,
-                'unitPrice': newPrice,
-                'totalValue': newTotalValue,
-                'status': statusController.text,
-              };
-              
-              Navigator.of(context).pop();
-              _updateInventoryItem(item['id'], updates);
-            },
-            child: Text('Save'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-            ),
-          ),
-        ],
-      ),
     );
   }
 

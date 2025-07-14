@@ -6,6 +6,7 @@ import 'package:farmer_consumer_marketplace/services/firebase_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
+import 'dart:convert'; // Added for base64Decode
 
 class FarmerProfileScreen extends StatefulWidget {
   @override
@@ -15,15 +16,15 @@ class FarmerProfileScreen extends StatefulWidget {
 class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   final FirebaseService _firebaseService = FirebaseService();
   final ImagePicker _imagePicker = ImagePicker();
-  
+
   bool _isLoading = true;
   bool _isEditing = false;
   bool _isSaving = false;
   String? _errorMessage;
   bool _isNewProfile = false;
-  
+
   Map<String, dynamic> _farmerData = {};
-  
+
   // Controllers for editing
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -36,21 +37,21 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   final TextEditingController _farmTypeController = TextEditingController();
   final TextEditingController _experienceController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
-  
+
   File? _profileImageFile;
-  
+
   @override
   void initState() {
     super.initState();
     _loadFarmerProfile();
   }
-  
+
   Future<void> _loadFarmerProfile() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-    
+
     try {
       // Check if user is logged in
       if (_firebaseService.currentUserId == null) {
@@ -60,9 +61,9 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
         });
         return;
       }
-      
+
       Map<String, dynamic>? userData = await _firebaseService.getUserProfile();
-      
+
       // Check if user exists and is a farmer
       if (userData == null) {
         setState(() {
@@ -74,7 +75,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
         });
         return;
       }
-      
+
       // Check if user is a farmer
       if (userData['role'] != 'farmer') {
         setState(() {
@@ -83,16 +84,17 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
         });
         return;
       }
-      
+
       // Get additional farmer data
-      Map<String, dynamic>? farmerData = await _firebaseService.getFarmerProfile();
-      
+      Map<String, dynamic>? farmerData =
+          await _firebaseService.getFarmerProfile();
+
       if (farmerData != null && farmerData.isNotEmpty) {
         setState(() {
           _farmerData = farmerData;
           _isLoading = false;
         });
-        
+
         // Set controller values
         _setControllerValues();
       } else {
@@ -102,10 +104,10 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
           _isNewProfile = true;
           _isEditing = true;
           _isLoading = false;
-          
+
           // Add user data to farmer data
           _farmerData = userData;
-          
+
           // Initialize with default values
           _initializeDefaultValues();
         });
@@ -118,19 +120,19 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
       });
     }
   }
-  
+
   void _initializeDefaultValues() {
     // Try to get user info from Firebase Auth
     final user = _firebaseService.auth.currentUser;
-    
+
     if (user != null) {
       _nameController.text = user.displayName ?? '';
       _phoneController.text = user.phoneNumber ?? '';
-      
+
       // Pre-fill email in farmerData (readonly)
       _farmerData['email'] = user.email;
     }
-    
+
     // Extract city and state from location if available
     String location = _farmerData['location'] ?? '';
     if (location.isNotEmpty) {
@@ -142,18 +144,18 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
         _stateController.text = parts[1];
       }
     }
-    
+
     // Set other default values
     _farmTypeController.text = 'Mixed';
     _experienceController.text = '0';
     _farmSizeController.text = '0';
   }
-  
+
   void _setControllerValues() {
     _nameController.text = _farmerData['name'] ?? '';
     _phoneController.text = _farmerData['phoneNumber'] ?? '';
     _addressController.text = _farmerData['address'] ?? '';
-    
+
     // Parse location if it exists (format: "City, State")
     String location = _farmerData['location'] ?? '';
     if (location.isNotEmpty) {
@@ -165,7 +167,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
         _stateController.text = parts[1];
       }
     }
-    
+
     _pincodeController.text = _farmerData['pincode'] ?? '';
     _farmNameController.text = _farmerData['farmName'] ?? '';
     _farmSizeController.text = _farmerData['farmSize']?.toString() ?? '';
@@ -173,14 +175,14 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     _experienceController.text = _farmerData['experience']?.toString() ?? '';
     _bioController.text = _farmerData['bio'] ?? '';
   }
-  
+
   Future<void> _pickImage() async {
     try {
       final XFile? pickedFile = await _imagePicker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 80,
       );
-      
+
       if (pickedFile != null) {
         setState(() {
           _profileImageFile = File(pickedFile.path);
@@ -195,18 +197,21 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
       );
     }
   }
-  
+
   Future<String?> _uploadProfileImage() async {
     if (_profileImageFile == null) return null;
-    
+
     try {
       // Create a reference to the storage location
-      String fileName = 'profile_${_firebaseService.currentUserId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final storageRef = FirebaseStorage.instance.ref().child('profile_images/$fileName');
-      
+      String fileName =
+          'profile_${_firebaseService.currentUserId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final storageRef = FirebaseStorage.instance.ref().child(
+        'profile_images/$fileName',
+      );
+
       // Upload file
       await storageRef.putFile(_profileImageFile!);
-      
+
       // Get download URL
       return await storageRef.getDownloadURL();
     } catch (e) {
@@ -214,7 +219,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
       return null;
     }
   }
-  
+
   Future<void> _saveProfile() async {
     // Validate required fields
     if (_nameController.text.isEmpty || _phoneController.text.isEmpty) {
@@ -226,17 +231,18 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
       );
       return;
     }
-    
+
     setState(() {
       _isSaving = true;
     });
-    
+
     try {
       // Upload profile image if changed
-      String? profileImageUrl = _profileImageFile != null 
-          ? await _uploadProfileImage() 
-          : _farmerData['profileImageUrl'];
-      
+      String? profileImageUrl =
+          _profileImageFile != null
+              ? await _uploadProfileImage()
+              : _farmerData['profileImageUrl'];
+
       // Prepare updated data
       Map<String, dynamic> updatedData = {
         'name': _nameController.text,
@@ -253,12 +259,12 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
         'bio': _bioController.text,
         'updatedAt': DateTime.now().toIso8601String(),
       };
-      
+
       // Add profile pic URL if available
       if (profileImageUrl != null) {
         updatedData['profilePic'] = profileImageUrl;
       }
-      
+
       // For new profiles, add creation timestamp
       if (_isNewProfile) {
         updatedData['createdAt'] = DateTime.now().toIso8601String();
@@ -266,37 +272,41 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
         updatedData['totalSales'] = 0;
         updatedData['rating'] = 0.0;
       }
-      
+
       // Save to Firebase
       bool success = await _firebaseService.updateFarmerProfile(updatedData);
-      
+
       if (success) {
         // Reload profile
         setState(() {
           _isNewProfile = false;
         });
         await _loadFarmerProfile();
-        
+
         // Exit edit mode
         setState(() {
           _isEditing = false;
           _isSaving = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Profile ${_isNewProfile ? 'created' : 'updated'} successfully'),
+            content: Text(
+              'Profile ${_isNewProfile ? 'created' : 'updated'} successfully',
+            ),
             backgroundColor: Colors.green,
           ),
         );
       } else {
-        throw Exception('Failed to ${_isNewProfile ? 'create' : 'update'} profile');
+        throw Exception(
+          'Failed to ${_isNewProfile ? 'create' : 'update'} profile',
+        );
       }
     } catch (e) {
       setState(() {
         _isSaving = false;
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error saving profile: $e'),
@@ -305,7 +315,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
       );
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -322,19 +332,20 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
               },
               tooltip: 'Edit Profile',
             ),
-            LogoutButton(),
+          LogoutButton(),
         ],
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : _errorMessage != null
+      body:
+          _isLoading
+              ? Center(child: CircularProgressIndicator())
+              : _errorMessage != null
               ? _buildErrorView()
               : _isEditing
-                  ? _buildEditProfileView()
-                  : _buildProfileView(),
+              ? _buildEditProfileView()
+              : _buildProfileView(),
     );
   }
-  
+
   Widget _buildErrorView() {
     return Center(
       child: Column(
@@ -374,7 +385,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
       ),
     );
   }
-  
+
   Widget _buildProfileView() {
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.0),
@@ -385,49 +396,21 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
           Center(
             child: Column(
               children: [
-                // Profile image
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.green,
-                      width: 3,
-                    ),
-                    image: _farmerData['profileImageUrl'] != null
-                        ? DecorationImage(
-                            image: NetworkImage(_farmerData['profileImageUrl']),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: _farmerData['profileImageUrl'] == null
-                      ? Icon(
-                          Icons.person,
-                          size: 60,
-                          color: Colors.grey[400],
-                        )
-                      : null,
-                ),
+                // Profile image (robust: bytes, url, fallback)
+                _buildProfileAvatar(),
                 SizedBox(height: 16),
                 // Name
                 Text(
                   _farmerData['name'] ?? 'Farmer',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 4),
                 // Farm name
-                if (_farmerData['farmName'] != null && _farmerData['farmName'].isNotEmpty)
+                if (_farmerData['farmName'] != null &&
+                    _farmerData['farmName'].isNotEmpty)
                   Text(
                     _farmerData['farmName'],
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[700],
-                    ),
+                    style: TextStyle(fontSize: 18, color: Colors.grey[700]),
                   ),
                 SizedBox(height: 8),
                 // Verified badge
@@ -440,11 +423,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.verified,
-                        size: 16,
-                        color: Colors.green,
-                      ),
+                      Icon(Icons.verified, size: 16, color: Colors.green),
                       SizedBox(width: 4),
                       Text(
                         'Verified Farmer',
@@ -459,9 +438,9 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
               ],
             ),
           ),
-          
+
           SizedBox(height: 24),
-          
+
           // Bio
           if (_farmerData['bio'] != null && _farmerData['bio'].isNotEmpty) ...[
             Card(
@@ -484,10 +463,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                     SizedBox(height: 8),
                     Text(
                       _farmerData['bio'],
-                      style: TextStyle(
-                        fontSize: 16,
-                        height: 1.5,
-                      ),
+                      style: TextStyle(fontSize: 16, height: 1.5),
                     ),
                   ],
                 ),
@@ -495,7 +471,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
             ),
             SizedBox(height: 16),
           ],
-          
+
           // Contact Information
           Card(
             elevation: 2,
@@ -509,16 +485,15 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                 children: [
                   Text(
                     'Contact Information',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 16),
                   _infoItem(
                     Icons.phone,
                     'Phone',
-                    _farmerData['phoneNumber'] ?? _farmerData['phone'] ?? 'Not provided',
+                    _farmerData['phoneNumber'] ??
+                        _farmerData['phone'] ??
+                        'Not provided',
                   ),
                   SizedBox(height: 12),
                   _infoItem(
@@ -527,18 +502,14 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                     _farmerData['email'] ?? 'Not provided',
                   ),
                   SizedBox(height: 12),
-                  _infoItem(
-                    Icons.location_on,
-                    'Address',
-                    _formatAddress(),
-                  ),
+                  _infoItem(Icons.location_on, 'Address', _formatAddress()),
                 ],
               ),
             ),
           ),
-          
+
           SizedBox(height: 16),
-          
+
           // Farm Information
           Card(
             elevation: 2,
@@ -552,10 +523,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                 children: [
                   Text(
                     'Farm Information',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 16),
                   _infoItem(
@@ -589,9 +557,9 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
               ),
             ),
           ),
-          
+
           SizedBox(height: 16),
-          
+
           // Account Information
           Card(
             elevation: 2,
@@ -605,10 +573,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                 children: [
                   Text(
                     'Account Information',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 16),
                   _infoItem(
@@ -640,13 +605,13 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
               ),
             ),
           ),
-          
+
           SizedBox(height: 24),
         ],
       ),
     );
   }
-  
+
   Widget _buildEditProfileView() {
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.0),
@@ -669,49 +634,19 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
             Center(
               child: Text(
                 'Please fill in your details to get started',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(color: Colors.grey[600]),
               ),
             ),
             SizedBox(height: 24),
           ],
-          
+
           // Profile image
           Center(
             child: Column(
               children: [
                 Stack(
                   children: [
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.green,
-                          width: 3,
-                        ),
-                        image: _profileImageFile != null
-                            ? DecorationImage(
-                                image: FileImage(_profileImageFile!),
-                                fit: BoxFit.cover,
-                              )
-                            : _farmerData['profileImageUrl'] != null
-                                ? DecorationImage(
-                                    image: NetworkImage(_farmerData['profileImageUrl']),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                      ),
-                      child: _profileImageFile == null && _farmerData['profileImageUrl'] == null
-                          ? Icon(
-                              Icons.person,
-                              size: 60,
-                              color: Colors.grey[400],
-                            )
-                          : null,
-                    ),
+                    _buildEditProfileAvatar(),
                     Positioned(
                       bottom: 0,
                       right: 0,
@@ -735,16 +670,14 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                 SizedBox(height: 8),
                 Text(
                   'Profile Photo',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(color: Colors.grey[600]),
                 ),
               ],
             ),
           ),
-          
+
           SizedBox(height: 24),
-          
+
           // Personal Information
           Card(
             elevation: 2,
@@ -797,7 +730,8 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      hintText: 'Tell us about yourself and your farming practices',
+                      hintText:
+                          'Tell us about yourself and your farming practices',
                       prefixIcon: Icon(Icons.description),
                     ),
                     maxLines: 3,
@@ -806,9 +740,9 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
               ),
             ),
           ),
-          
+
           SizedBox(height: 16),
-          
+
           // Address Information
           Card(
             elevation: 2,
@@ -887,9 +821,9 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
               ),
             ),
           ),
-          
+
           SizedBox(height: 16),
-          
+
           // Farm Information
           Card(
             elevation: 2,
@@ -963,25 +897,28 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
               ),
             ),
           ),
-          
+
           SizedBox(height: 32),
-          
+
           // Save and Cancel buttons
           Row(
             children: [
               Expanded(
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _saveProfile,
-                  child: _isSaving
-                      ? SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                  child:
+                      _isSaving
+                          ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                          : Text(
+                            _isNewProfile ? 'Create Profile' : 'Save Profile',
                           ),
-                        )
-                      : Text(_isNewProfile ? 'Create Profile' : 'Save Profile'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     padding: EdgeInsets.symmetric(vertical: 16),
@@ -996,13 +933,14 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                 SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _isSaving
-                        ? null
-                        : () {
-                            setState(() {
-                              _isEditing = false;
-                            });
-                          },
+                    onPressed:
+                        _isSaving
+                            ? null
+                            : () {
+                              setState(() {
+                                _isEditing = false;
+                              });
+                            },
                     child: Text('Cancel'),
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.symmetric(vertical: 16),
@@ -1015,13 +953,13 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
               ],
             ],
           ),
-          
+
           SizedBox(height: 24),
         ],
       ),
     );
   }
-  
+
   Widget _infoItem(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1032,11 +970,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
             color: Colors.green[50],
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            icon,
-            color: Colors.green,
-            size: 20,
-          ),
+          child: Icon(icon, color: Colors.green, size: 20),
         ),
         SizedBox(width: 16),
         Expanded(
@@ -1045,17 +979,17 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
               ),
               SizedBox(height: 2),
               Text(
                 value,
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: value == 'Not provided' ? FontWeight.normal : FontWeight.bold,
+                  fontWeight:
+                      value == 'Not provided'
+                          ? FontWeight.normal
+                          : FontWeight.bold,
                   color: value == 'Not provided' ? Colors.grey : null,
                 ),
               ),
@@ -1065,36 +999,36 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
       ],
     );
   }
-  
+
   String _formatAddress() {
     List<String> addressParts = [];
-    
+
     if (_farmerData['address'] != null && _farmerData['address'].isNotEmpty) {
       addressParts.add(_farmerData['address']);
     }
-    
+
     if (_farmerData['location'] != null && _farmerData['location'].isNotEmpty) {
       addressParts.add(_farmerData['location']);
     } else {
       if (_farmerData['city'] != null && _farmerData['city'].isNotEmpty) {
         addressParts.add(_farmerData['city']);
       }
-      
+
       if (_farmerData['state'] != null && _farmerData['state'].isNotEmpty) {
         addressParts.add(_farmerData['state']);
       }
     }
-    
+
     if (_farmerData['pincode'] != null && _farmerData['pincode'].isNotEmpty) {
       addressParts.add(_farmerData['pincode']);
     }
-    
+
     return addressParts.isEmpty ? 'Not provided' : addressParts.join(', ');
   }
-  
+
   String _formatDate(String? dateString) {
     if (dateString == null) return 'Not available';
-    
+
     try {
       DateTime date = DateTime.parse(dateString);
       return DateFormat('MMMM d, yyyy').format(date);
@@ -1102,7 +1036,144 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
       return 'Not available';
     }
   }
-  
+
+  Widget _buildProfileAvatar() {
+    Widget avatarWidget;
+    // Try profileImageBytes (base64)
+    if (_farmerData['profileImageBytes'] != null &&
+        (_farmerData['profileImageBytes'] as String).isNotEmpty) {
+      try {
+        final bytes = base64Decode(_farmerData['profileImageBytes']);
+        avatarWidget = ClipOval(
+          child: Image.memory(
+            bytes,
+            width: 120,
+            height: 120,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              // Fallback to next option
+              return _networkOrDefaultAvatar();
+            },
+          ),
+        );
+      } catch (_) {
+        avatarWidget = _networkOrDefaultAvatar();
+      }
+    } else {
+      avatarWidget = _networkOrDefaultAvatar();
+    }
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.green, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.10),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: avatarWidget,
+    );
+  }
+
+  Widget _networkOrDefaultAvatar() {
+    if (_farmerData['profileImageUrl'] != null &&
+        (_farmerData['profileImageUrl'] as String).isNotEmpty) {
+      return ClipOval(
+        child: FadeInImage.assetNetwork(
+          placeholder: 'assets/app_logo.png',
+          image: _farmerData['profileImageUrl'],
+          width: 120,
+          height: 120,
+          fit: BoxFit.cover,
+          imageErrorBuilder: (context, error, stackTrace) {
+            return Icon(Icons.agriculture, size: 60, color: Colors.green[700]);
+          },
+        ),
+      );
+    }
+    return Icon(Icons.agriculture, size: 60, color: Colors.green[700]);
+  }
+
+  Widget _buildEditProfileAvatar() {
+    if (_profileImageFile != null) {
+      // Show preview of newly picked image
+      return Container(
+        width: 120,
+        height: 120,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.green, width: 3),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.green.withOpacity(0.10),
+              blurRadius: 10,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: Image.file(
+            _profileImageFile!,
+            width: 120,
+            height: 120,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Icon(
+                Icons.agriculture,
+                size: 60,
+                color: Colors.green[700],
+              );
+            },
+          ),
+        ),
+      );
+    }
+    // Otherwise, use the same logic as the view mode
+    Widget avatarWidget;
+    if (_farmerData['profileImageBytes'] != null &&
+        (_farmerData['profileImageBytes'] as String).isNotEmpty) {
+      try {
+        final bytes = base64Decode(_farmerData['profileImageBytes']);
+        avatarWidget = ClipOval(
+          child: Image.memory(
+            bytes,
+            width: 120,
+            height: 120,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _networkOrDefaultAvatar();
+            },
+          ),
+        );
+      } catch (_) {
+        avatarWidget = _networkOrDefaultAvatar();
+      }
+    } else {
+      avatarWidget = _networkOrDefaultAvatar();
+    }
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.green, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.10),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: avatarWidget,
+    );
+  }
+
   @override
   void dispose() {
     _nameController.dispose();

@@ -33,12 +33,12 @@ class _WeatherScreenState extends State<WeatherScreen> {
     try {
       // Check location permission status
       var status = await Permission.location.status;
-      
+
       if (status.isDenied) {
         // Request location permission
         status = await Permission.location.request();
       }
-      
+
       if (status.isGranted) {
         await _getCurrentLocation();
       } else {
@@ -66,12 +66,12 @@ class _WeatherScreenState extends State<WeatherScreen> {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      
+
       // Use coordinates for weather lookup
       setState(() {
         _currentLocation = '${position.latitude},${position.longitude}';
       });
-      
+
       _fetchWeatherData();
     } catch (e) {
       setState(() {
@@ -89,7 +89,9 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
   Future<WeatherInfo> _getWeatherInfo() async {
     try {
-      final weatherData = await _weatherService.getCurrentWeather(_currentLocation);
+      final weatherData = await _weatherService.getCurrentWeather(
+        _currentLocation,
+      );
       return WeatherInfo.fromJson(weatherData);
     } catch (e) {
       print('Error fetching weather data: $e');
@@ -108,13 +110,10 @@ class _WeatherScreenState extends State<WeatherScreen> {
             icon: Icon(Icons.my_location),
             onPressed: _checkLocationPermission,
           ),
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _fetchWeatherData,
-          ),
+          IconButton(icon: Icon(Icons.refresh), onPressed: _fetchWeatherData),
         ],
       ),
-    
+
       body: Column(
         children: [
           if (_errorMessage != null)
@@ -145,7 +144,10 @@ class _WeatherScreenState extends State<WeatherScreen> {
                     decoration: InputDecoration(
                       hintText: 'Enter location (e.g., New Delhi)',
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 14.0,
+                      ),
                     ),
                   ),
                 ),
@@ -161,6 +163,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   },
                   child: Text('Search'),
                   style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
                     backgroundColor: Colors.green,
                     padding: EdgeInsets.symmetric(vertical: 14.0),
                   ),
@@ -169,77 +172,90 @@ class _WeatherScreenState extends State<WeatherScreen> {
             ),
           ),
           Expanded(
-            child: _isLoading
-                ? Center(child: CircularProgressIndicator())
-                : FutureBuilder<WeatherInfo>(
-                    future: _weatherFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
+            child:
+                _isLoading
+                    ? Center(child: CircularProgressIndicator())
+                    : FutureBuilder<WeatherInfo>(
+                      future: _weatherFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return Center(child: CircularProgressIndicator());
+                        } else if (snapshot.hasError) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    size: 60,
+                                    color: Colors.red,
+                                  ),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'Error loading weather data',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    snapshot.error.toString(),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  SizedBox(height: 16),
+                                  ElevatedButton(
+                                    onPressed: _fetchWeatherData,
+                                    child: Text('Retry'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        } else if (snapshot.hasData) {
+                          final weather = snapshot.data!;
+                          return SingleChildScrollView(
+                            padding: EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLocationInfo(weather),
+                                SizedBox(height: 24.0),
+                                _buildCurrentWeather(weather),
+                                SizedBox(height: 24.0),
+                                _buildWeatherDetails(weather),
+                                SizedBox(height: 24.0),
+                                _buildAdditionalInfo(weather),
+                              ],
+                            ),
+                          );
+                        } else {
+                          return Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.error_outline, size: 60, color: Colors.red),
-                                SizedBox(height: 16),
-                                Text(
-                                  'Error loading weather data',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  snapshot.error.toString(),
-                                  textAlign: TextAlign.center,
+                                Icon(
+                                  Icons.cloud_off,
+                                  size: 60,
+                                  color: Colors.grey,
                                 ),
                                 SizedBox(height: 16),
-                                ElevatedButton(
-                                  onPressed: _fetchWeatherData,
-                                  child: Text('Retry'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                  ),
+                                Text(
+                                  'No weather data available',
+                                  style: TextStyle(fontSize: 18),
                                 ),
                               ],
                             ),
-                          ),
-                        );
-                      } else if (snapshot.hasData) {
-                        final weather = snapshot.data!;
-                        return SingleChildScrollView(
-                          padding: EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildLocationInfo(weather),
-                              SizedBox(height: 24.0),
-                              _buildCurrentWeather(weather),
-                              SizedBox(height: 24.0),
-                              _buildWeatherDetails(weather),
-                              SizedBox(height: 24.0),
-                              _buildAdditionalInfo(weather),
-                            ],
-                          ),
-                        );
-                      } else {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.cloud_off, size: 60, color: Colors.grey),
-                              SizedBox(height: 16),
-                              Text(
-                                'No weather data available',
-                                style: TextStyle(fontSize: 18),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                    },
-                  ),
+                          );
+                        }
+                      },
+                    ),
           ),
         ],
       ),
@@ -259,18 +275,12 @@ class _WeatherScreenState extends State<WeatherScreen> {
               children: [
                 Text(
                   weather.location,
-                  style: TextStyle(
-                    fontSize: 24.0,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 24.0, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 4.0),
                 Text(
                   '${weather.region}, ${weather.country}',
-                  style: TextStyle(
-                    fontSize: 16.0,
-                    color: Colors.grey[700],
-                  ),
+                  style: TextStyle(fontSize: 16.0, color: Colors.grey[700]),
                 ),
                 SizedBox(height: 4.0),
                 Text(
@@ -283,7 +293,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
                 ),
               ],
             ),
-            
           ],
         ),
       ),
@@ -304,47 +313,30 @@ class _WeatherScreenState extends State<WeatherScreen> {
               children: [
                 Text(
                   weather.temperature,
-                  style: TextStyle(
-                    fontSize: 36.0,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 36.0, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 4.0),
                 Text(
                   weather.condition,
-                  style: TextStyle(
-                    fontSize: 18.0,
-                    color: Colors.grey[700],
-                  ),
+                  style: TextStyle(fontSize: 18.0, color: Colors.grey[700]),
                 ),
                 SizedBox(height: 4.0),
                 Text(
                   'Feels like ${weather.feelsLike}',
-                  style: TextStyle(
-                    fontSize: 16.0,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 16.0, color: Colors.grey[600]),
                 ),
               ],
             ),
             weather.weatherIcons.isNotEmpty
                 ? Image.network(
-                    weather.weatherIcons.first,
-                    width: 80,
-                    height: 80,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Icon(
-                        Icons.wb_sunny,
-                        size: 80,
-                        color: Colors.amber,
-                      );
-                    },
-                  )
-                : Icon(
-                    Icons.wb_sunny,
-                    size: 80,
-                    color: Colors.amber,
-                  ),
+                  weather.weatherIcons.first,
+                  width: 80,
+                  height: 80,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(Icons.wb_sunny, size: 80, color: Colors.amber);
+                  },
+                )
+                : Icon(Icons.wb_sunny, size: 80, color: Colors.amber),
           ],
         ),
       ),
@@ -362,17 +354,18 @@ class _WeatherScreenState extends State<WeatherScreen> {
           children: [
             Text(
               'Weather Details',
-              style: TextStyle(
-                fontSize: 18.0,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16.0),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _weatherDetailItem(Icons.opacity, 'Humidity', weather.humidity),
-                _weatherDetailItem(Icons.water_drop, 'Rainfall', weather.rainfall),
+                _weatherDetailItem(
+                  Icons.water_drop,
+                  'Rainfall',
+                  weather.rainfall,
+                ),
                 _weatherDetailItem(Icons.air, 'Wind', weather.windSpeed),
               ],
             ),
@@ -380,8 +373,16 @@ class _WeatherScreenState extends State<WeatherScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _weatherDetailItem(Icons.compress, 'Pressure', weather.pressure),
-                _weatherDetailItem(Icons.visibility, 'Visibility', weather.visibility),
+                _weatherDetailItem(
+                  Icons.compress,
+                  'Pressure',
+                  weather.pressure,
+                ),
+                _weatherDetailItem(
+                  Icons.visibility,
+                  'Visibility',
+                  weather.visibility,
+                ),
                 _weatherDetailItem(Icons.wb_sunny, 'UV Index', weather.uvIndex),
               ],
             ),
@@ -398,19 +399,10 @@ class _WeatherScreenState extends State<WeatherScreen> {
         SizedBox(height: 8.0),
         Text(
           value,
-          style: TextStyle(
-            fontSize: 16.0,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 4.0),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14.0,
-            color: Colors.grey[600],
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 14.0, color: Colors.grey[600])),
       ],
     );
   }
@@ -426,10 +418,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
           children: [
             Text(
               'Agriculture Tips',
-              style: TextStyle(
-                fontSize: 18.0,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16.0),
             _buildAgricultureTip(
@@ -476,18 +465,12 @@ class _WeatherScreenState extends State<WeatherScreen> {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
-                    fontSize: 16.0,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 4.0),
                 Text(
                   content,
-                  style: TextStyle(
-                    fontSize: 14.0,
-                    color: Colors.grey[700],
-                  ),
+                  style: TextStyle(fontSize: 14.0, color: Colors.grey[700]),
                 ),
               ],
             ),
@@ -498,15 +481,16 @@ class _WeatherScreenState extends State<WeatherScreen> {
   }
 
   String _getWateringAdvice(WeatherInfo weather) {
-    final rainfall = double.tryParse(weather.rainfall.replaceAll('mm', '')) ?? 0;
+    final rainfall =
+        double.tryParse(weather.rainfall.replaceAll('mm', '')) ?? 0;
     final humidity = double.tryParse(weather.humidity.replaceAll('%', '')) ?? 0;
-    
+
     if (rainfall > 5) {
       return 'Recent rainfall is sufficient. Skip watering today to avoid overwatering and potential root diseases.';
     } else if (humidity > 80) {
       return 'High humidity detected. Consider light watering or skip today depending on your crop requirements.';
-    } else if (weather.condition.toLowerCase().contains('sunny') || 
-              weather.condition.toLowerCase().contains('clear')) {
+    } else if (weather.condition.toLowerCase().contains('sunny') ||
+        weather.condition.toLowerCase().contains('clear')) {
       return 'Clear weather with low rainfall. Ensure adequate irrigation, especially for water-intensive crops.';
     } else {
       return 'Moderate conditions. Follow your regular watering schedule based on crop type and growth stage.';
@@ -514,9 +498,10 @@ class _WeatherScreenState extends State<WeatherScreen> {
   }
 
   String _getPestAlert(WeatherInfo weather) {
-    final temperature = double.tryParse(weather.temperature.replaceAll('°C', '')) ?? 0;
+    final temperature =
+        double.tryParse(weather.temperature.replaceAll('°C', '')) ?? 0;
     final humidity = double.tryParse(weather.humidity.replaceAll('%', '')) ?? 0;
-    
+
     if (temperature > 28 && humidity > 70) {
       return 'High temperature and humidity conditions are favorable for fungal growth and insect proliferation. Monitor crops closely.';
     } else if (temperature > 30) {
@@ -529,7 +514,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
   }
 
   String _getFarmingTip(WeatherInfo weather) {
-    if (weather.condition.toLowerCase().contains('rain') || 
+    if (weather.condition.toLowerCase().contains('rain') ||
         weather.condition.toLowerCase().contains('drizzle')) {
       return 'Rainy conditions are good for transplanting seedlings. Avoid applying fertilizers as they may wash away.';
     } else if (weather.condition.toLowerCase().contains('sunny')) {

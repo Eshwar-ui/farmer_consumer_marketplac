@@ -19,14 +19,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
-  
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
   UserRole _selectedRole = UserRole.consumer;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   String _errorMessage = '';
-  
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -50,7 +51,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      
+
       await authService.registerWithEmailAndPassword(
         _emailController.text.trim(),
         _passwordController.text,
@@ -59,7 +60,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _selectedRole,
         _locationController.text.trim(),
       );
-      
+
       // Registration successful, navigate back to login
       Navigator.pop(context);
     } catch (e) {
@@ -72,7 +73,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String _getErrorMessage(dynamic error) {
     String message = error.toString();
-    
+
     if (message.contains('email-already-in-use')) {
       return 'This email is already registered. Please use a different email or login.';
     } else if (message.contains('weak-password')) {
@@ -80,7 +81,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } else if (message.contains('invalid-email')) {
       return 'Please enter a valid email address.';
     }
-    
+
     return 'Registration failed. Please try again.';
   }
 
@@ -88,6 +89,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        foregroundColor: Colors.white,
         title: Text('Create Account'),
       ),
       body: SafeArea(
@@ -109,30 +111,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       color: AppColors.primaryColor,
                     ),
                   ),
-                  
+
                   SizedBox(height: 8),
-                  
+
                   Text(
                     'Create your account to connect with farmers and consumers',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                   ),
-                  
+
                   SizedBox(height: 32),
-                  
+
                   // User role selection
                   Text(
                     'I am a:',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
-                  
+
                   SizedBox(height: 8),
-                  
+
                   Row(
                     children: [
                       Expanded(
@@ -149,7 +145,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           contentPadding: EdgeInsets.zero,
                         ),
                       ),
-                      
+
                       Expanded(
                         child: RadioListTile<UserRole>(
                           title: Text('Consumer'),
@@ -166,9 +162,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ],
                   ),
-                  
+
                   SizedBox(height: 24),
-                  
+
                   // Name field
                   TextFormField(
                     controller: _nameController,
@@ -184,9 +180,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return null;
                     },
                   ),
-                  
+
                   SizedBox(height: 16),
-                  
+
                   // Email field
                   TextFormField(
                     controller: _emailController,
@@ -200,15 +196,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your email';
                       }
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                      if (!RegExp(
+                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                      ).hasMatch(value)) {
                         return 'Please enter a valid email';
                       }
                       return null;
                     },
                   ),
-                  
+
                   SizedBox(height: 16),
-                  
+
                   // Phone field
                   TextFormField(
                     controller: _phoneController,
@@ -225,9 +223,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return null;
                     },
                   ),
-                  
+
                   SizedBox(height: 16),
-                  
+
                   // Location field
                   TextFormField(
                     controller: _locationController,
@@ -243,9 +241,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return null;
                     },
                   ),
-                  
+
                   SizedBox(height: 16),
-                  
+
                   // Password field
                   TextFormField(
                     controller: _passwordController,
@@ -255,7 +253,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       prefixIcon: Icon(Icons.lock),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                          _obscurePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
                         ),
                         onPressed: () {
                           setState(() {
@@ -275,9 +275,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return null;
                     },
                   ),
-                  
+
                   SizedBox(height: 16),
-                  
+
                   // Confirm Password field
                   TextFormField(
                     controller: _confirmPasswordController,
@@ -287,7 +287,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       prefixIcon: Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                          _obscureConfirmPassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
                         ),
                         onPressed: () {
                           setState(() {
@@ -307,9 +309,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return null;
                     },
                   ),
-                  
+
                   SizedBox(height: 24),
-                  
+
                   // Error message
                   if (_errorMessage.isNotEmpty)
                     Container(
@@ -333,7 +335,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ],
                       ),
                     ),
-                  
+
                   // Register button
                   LoadingButton(
                     isLoading: _isLoading,
@@ -341,9 +343,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     text: 'Register',
                     loadingText: 'Creating account...',
                   ),
-                  
+
                   SizedBox(height: 24),
-                  
+
                   // Login option
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
